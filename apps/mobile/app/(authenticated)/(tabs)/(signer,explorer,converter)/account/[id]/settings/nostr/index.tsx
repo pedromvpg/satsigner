@@ -92,19 +92,13 @@ function NostrSync() {
    */
   const handleClearCaches = async () => {
     if (!accountId || !account?.nostr) {
-      console.log(
-        '[Nostr Debug] Clear caches failed: Missing account or nostr config',
-        { accountId, hasNostr: !!account?.nostr }
-      )
       toast.error('Account ID and Nostr configuration are required')
       return
     }
 
     try {
-      console.log('[Nostr Debug] Starting cache clear')
       setIsLoading(true)
       await clearStoredDMs(account)
-      console.log('[Nostr Debug] Cleared stored DMs')
       updateAccountNostr(accountId, {
         ...account.nostr,
         dms: []
@@ -112,12 +106,10 @@ function NostrSync() {
       clearNostrState(accountId)
       clearProcessedMessageIds(accountId)
       clearProcessedEvents(accountId)
-      console.log('[Nostr Debug] Cleared all Nostr state and events')
       setSelectedMembers(new Set())
       await new Promise((resolve) => setTimeout(resolve, 100))
       toast.success('Messages cleared successfully')
-    } catch (error) {
-      console.error('[Nostr Debug] Failed to clear messages:', error)
+    } catch {
       toast.error('Failed to clear messages')
     } finally {
       setIsLoading(false)
@@ -129,24 +121,12 @@ function NostrSync() {
    */
   const loadNostrAccountData = useCallback(() => {
     if (!account || !accountId) {
-      console.log(
-        '[Nostr Debug] Load account data failed: Missing account or ID',
-        { accountId, hasAccount: !!account }
-      )
       toast.error('Account and Account ID are required')
       return
     }
 
-    console.log('[Nostr Debug] Loading Nostr account data:', {
-      hasNostr: !!account.nostr,
-      autoSync: account.nostr?.autoSync,
-      relayCount: account.nostr?.relays?.length,
-      hasDeviceKeys: !!(account.nostr?.deviceNpub && account.nostr?.deviceNsec)
-    })
-
     // Initialize nostr object if it doesn't exist
     if (!account.nostr) {
-      console.log('[Nostr Debug] Initializing new nostr object')
       updateAccountNostr(accountId, {
         autoSync: false,
         relays: [],
@@ -169,25 +149,14 @@ function NostrSync() {
    */
   const handleToggleAutoSync = useCallback(async () => {
     if (!accountId || !account?.nostr) {
-      console.log(
-        '[Nostr Debug] Toggle Auto Sync failed: Missing account or nostr config',
-        { accountId, hasNostr: !!account?.nostr }
-      )
       toast.error('Account ID and Nostr configuration are required')
       return
     }
 
     try {
-      console.log('[Nostr Debug] Starting toggle auto sync', {
-        currentAutoSync: account.nostr.autoSync,
-        hasRelays: account.nostr.relays?.length > 0,
-        hasDeviceKeys: !!(account.nostr.deviceNpub && account.nostr.deviceNsec)
-      })
-
       // Initialize nostr object if it doesn't exist
       if (!account.nostr) {
-        console.log('[Nostr Debug] Initializing nostr object')
-        await updateAccountNostr(accountId, {
+        updateAccountNostr(accountId, {
           autoSync: false,
           relays: [],
           dms: [],
@@ -204,11 +173,9 @@ function NostrSync() {
 
       if (account.nostr.autoSync) {
         // Turn sync OFF
-        console.log('[Nostr Debug] Turning sync OFF')
         setIsSyncing(true)
         try {
           // Cleanup all subscriptions first
-          console.log('[Nostr Debug] Cleaning up subscriptions')
           await cleanupSubscriptions()
 
           // Then update state
@@ -217,16 +184,13 @@ function NostrSync() {
             autoSync: false,
             lastUpdated: new Date()
           })
-          console.log('[Nostr Debug] Successfully turned sync OFF')
-        } catch (error) {
-          console.error('[Nostr Debug] Failed to cleanup subscriptions:', error)
+        } catch {
           toast.error('Failed to cleanup subscriptions')
         } finally {
           setIsSyncing(false)
         }
       } else {
         // Turn sync ON
-        console.log('[Nostr Debug] Turning sync ON')
         updateAccountNostr(accountId, {
           ...account.nostr,
           autoSync: true,
@@ -238,14 +202,6 @@ function NostrSync() {
 
         // Get fresh account state after update using the callback
         const updatedAccount = getUpdatedAccount()
-        console.log('[Nostr Debug] Updated account state:', {
-          hasRelays: updatedAccount?.nostr?.relays?.length > 0,
-          hasDeviceKeys: !!(
-            updatedAccount?.nostr?.deviceNpub &&
-            updatedAccount?.nostr?.deviceNsec
-          ),
-          autoSync: updatedAccount?.nostr?.autoSync
-        })
 
         if (
           updatedAccount?.nostr?.relays &&
@@ -255,38 +211,21 @@ function NostrSync() {
         ) {
           setIsSyncing(true)
           try {
-            console.log('[Nostr Debug] Starting device announcement')
             deviceAnnouncement(updatedAccount)
-            console.log('[Nostr Debug] Starting sync subscriptions')
             // Start both subscriptions using the new function
             await nostrSyncSubscriptions(updatedAccount, (loading: boolean) => {
-              console.log('[Nostr Debug] Sync subscription status:', {
-                loading
-              })
               requestAnimationFrame(() => {
                 setIsSyncing(loading)
               })
             })
-            console.log('[Nostr Debug] Successfully started sync')
-          } catch (error) {
-            console.error('[Nostr Debug] Failed to setup sync:', error)
+          } catch {
             toast.error('Failed to setup sync')
           } finally {
             setIsSyncing(false)
           }
-        } else {
-          console.log(
-            '[Nostr Debug] Cannot start sync - missing requirements:',
-            {
-              hasRelays: updatedAccount?.nostr?.relays?.length > 0,
-              hasDeviceNpub: !!updatedAccount?.nostr?.deviceNpub,
-              hasDeviceNsec: !!updatedAccount?.nostr?.deviceNsec
-            }
-          )
         }
       }
-    } catch (error) {
-      console.error('[Nostr Debug] Failed to toggle auto sync:', error)
+    } catch {
       toast.error('Failed to toggle auto sync')
       setIsSyncing(false)
     }
@@ -355,16 +294,6 @@ function NostrSync() {
       return
     }
     router.navigate(`/account/${accountId}/settings/nostr/selectRelays`)
-  }, [accountId])
-
-  const _handleNavigateToNostrLabels = useCallback(() => {
-    if (!accountId) return
-    router.navigate(`/account/${accountId}/settings/nostr/labels`)
-  }, [accountId])
-
-  const _handleNavigateToNostrBackup = useCallback(() => {
-    if (!accountId) return
-    router.navigate(`/account/${accountId}/settings/nostr/backup`)
   }, [accountId])
 
   // Effects
