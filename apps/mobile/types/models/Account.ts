@@ -106,7 +106,7 @@ export type Account = {
   }
 }
 
-export interface NostrAccount {
+export type NostrAccount = {
   commonNpub: string
   commonNsec: string
   relays: string[]
