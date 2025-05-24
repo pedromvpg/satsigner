@@ -1238,6 +1238,11 @@
   resolved "https://registry.yarnpkg.com/@braintree/sanitize-url/-/sanitize-url-6.0.4.tgz#923ca57e173c6b232bbbb07347b1be982f03e783"
   integrity sha512-s3jaWicZd0pkP0jf5ysyHUI/RE7MHos6qlToFcGWXVp+ykHOy77OUMrfbgJ9it2C5bow7OIQwYYaHjk9XlBQ2A==
 
+"@cto.af/wtf8@0.0.2":
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/@cto.af/wtf8/-/wtf8-0.0.2.tgz#0035df6e25eaadccd4c6289c91f5c373d20a402f"
+  integrity sha512-ATm4UQiKrdm5GnU6BvIwUDN+LDEtt23zuzKFpnfDT59ULAd0aMYm/nSFzbSO02garLcXumRC13PzNfa7BsfvSg==
+
 "@egjs/hammerjs@^2.0.17":
   version "2.0.17"
   resolved "https://registry.npmjs.org/@egjs/hammerjs/-/hammerjs-2.0.17.tgz#5dc02af75a6a06e4c2db0202cae38c9263895124"
@@ -4881,10 +4886,12 @@ cbor-js@^0.1.0:
   resolved "https://registry.yarnpkg.com/cbor-js/-/cbor-js-0.1.0.tgz#c80ce6120f387e8faa74370dfda21d965b8fc7f9"
   integrity sha512-7sQ/TvDZPl7csT1Sif9G0+MA0I0JOVah8+wWlJVQdVEgIbCzlN/ab3x+uvMNsc34TUvO6osQTAmB2ls80JX6tw==
 
-cbor2@^1.12.0:
-  version "1.12.0"
-  resolved "https://registry.yarnpkg.com/cbor2/-/cbor2-1.12.0.tgz#b1cae821ee8d673cff70b078c3f08041bc47bdde"
-  integrity sha512-3Cco8XQhi27DogSp9Ri6LYNZLi/TBY/JVnDe+mj06NkBjW/ZYOtekaEU4wZ4xcRMNrFkDv8KNtOAqHyDfz3lYg==
+cbor2@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/cbor2/-/cbor2-2.0.1.tgz#49c13e58527e11c5a12a668a516fd8a96cc325c9"
+  integrity sha512-9bE8+tueGxONyxpttNKkAKKcGVtAPeoSJ64AjVTTjEuBOuRaeeP76EN9BbmQqkz1ZeTP0QPvksNBKwvEutIUzQ==
+  dependencies:
+    "@cto.af/wtf8" "0.0.2"
 
 ccount@^2.0.0:
   version "2.0.1"
