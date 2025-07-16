@@ -478,29 +478,36 @@ function PreviewMessage() {
   const transactionHex = useMemo(() => {
     if (!account) return ''
 
-    const transaction = new bitcoinjs.Transaction()
-    const network = bitcoinjsNetwork(account.network)
+    try {
+      const transaction = new bitcoinjs.Transaction()
+      const network = bitcoinjsNetwork(account.network)
 
-    // Convert inputs to array once to avoid repeated Map iteration
-    const inputArray = Array.from(inputs.values())
+      // Convert inputs to array once to avoid repeated Map iteration
+      const inputArray = Array.from(inputs.values())
 
-    for (const input of inputArray) {
-      const hashBuffer = Buffer.from(parseHexToBytes(input.txid))
-      transaction.addInput(hashBuffer, input.vout)
+      for (const input of inputArray) {
+        const hashBuffer = Buffer.from(parseHexToBytes(input.txid))
+        transaction.addInput(hashBuffer, input.vout)
+      }
+
+      for (const output of outputs) {
+        const outputScript = bitcoinjs.address.toOutputScript(
+          output.to,
+          network
+        )
+        transaction.addOutput(outputScript, output.amount)
+      }
+
+      const hex = transaction.toHex()
+
+      // Clear transaction data to help garbage collection
+      transaction.ins = []
+      transaction.outs = []
+
+      return hex
+    } catch {
+      return ''
     }
-
-    for (const output of outputs) {
-      const outputScript = bitcoinjs.address.toOutputScript(output.to, network)
-      transaction.addOutput(outputScript, output.amount)
-    }
-
-    const hex = transaction.toHex()
-
-    // Clear transaction data to help garbage collection
-    transaction.ins = []
-    transaction.outs = []
-
-    return hex
   }, [account, inputs, outputs])
 
   const transaction = useMemo(() => {
