@@ -189,7 +189,7 @@ function SSMultisigKeyControl({
           {(!isKeyCompleted || isSettingsMode) && (
             <SSFormLayout>
               <SSFormLayout.Item>
-                <SSFormLayout.Label label={t('account.name')} />
+                <SSFormLayout.Label label={t('account.participant.keyName')} />
                 <SSTextInput
                   value={localKeyName}
                   onChangeText={handleKeyNameChange}

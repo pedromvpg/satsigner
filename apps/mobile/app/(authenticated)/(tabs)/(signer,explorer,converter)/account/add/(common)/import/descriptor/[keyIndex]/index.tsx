@@ -25,6 +25,7 @@ export default function ImportDescriptor() {
 
   const [loading, setLoading] = useState(false)
   const [localDescriptor, setLocalDescriptor] = useState('')
+  const [optionalDescriptor, setOptionalDescriptor] = useState('')
 
   const [
     setKey,
@@ -49,6 +50,11 @@ export default function ImportDescriptor() {
     setLocalDescriptor(text)
   }
 
+  async function handleOnPressPasteOptional() {
+    const text = await Clipboard.getStringAsync()
+    setOptionalDescriptor(text)
+  }
+
   async function handleOnPressConfirm() {
     setLoading(true)
     const descriptor = await new Descriptor().create(
@@ -63,6 +69,13 @@ export default function ImportDescriptor() {
     setKey(Number(keyIndex))
     updateKeyFingerprint(Number(keyIndex), fingerprint)
     setKeyDerivationPath(Number(keyIndex), derivationPath)
+    
+    // Handle optional descriptor if provided
+    if (optionalDescriptor.trim()) {
+      // TODO: Store or process optional descriptor as needed
+      console.log('Optional descriptor provided:', optionalDescriptor)
+    }
+    
     clearKeyState()
 
     setLoading(false)
@@ -96,8 +109,24 @@ export default function ImportDescriptor() {
                 onChangeText={setLocalDescriptor}
               />
             </SSFormLayout.Item>
+            <SSFormLayout.Item>
+              <SSFormLayout.Label label={t('common.descriptor') + ' (' + t('common.optional') + ')'} />
+              <SSTextInput
+                align="left"
+                style={{
+                  height: 150,
+                  verticalAlign: 'top',
+                  paddingVertical: 16
+                }}
+                multiline
+                numberOfLines={5}
+                value={optionalDescriptor}
+                onChangeText={setOptionalDescriptor}
+              />
+            </SSFormLayout.Item>
           </SSFormLayout>
           <SSButton label={t('common.paste')} onPress={handleOnPressPaste} />
+          <SSButton label={t('common.paste') + ' (' + t('common.optional') + ')'} onPress={handleOnPressPasteOptional} />
           <SSButton label={t('camera.scanQRCode')} onPress={() => {}} />
           <SSButton
             variant="outline"
@@ -112,6 +141,7 @@ export default function ImportDescriptor() {
             label={t('common.confirm')}
             variant="secondary"
             loading={loading}
+            disabled={!localDescriptor.trim()}
             onPress={handleOnPressConfirm}
           />
           <SSButton
