@@ -31,6 +31,7 @@
     "entropy.title": "Extra Entropy",
     "export.config": "Export config",
     "export.descriptors": "Export descriptors",
+    "export.descriptorsPDF": "Export as PDF",
     "export.labels": "Export labels",
     "export.noLabels.description": "Once you add labels to your transactions, utxos, and addresses, you will be able to export them.",
     "export.noLabels.title": "No labels",
@@ -136,7 +137,9 @@
     "seed.sharePub": "Share XPub",
     "seed.unableToDecrypt": "Unable to decrypt seed",
     "selectKeySource": "Select Key Source",
-    "settings.title": "Account Settings and Tools",
+    "settings": {
+      "title": "Master Key Settings and Tools"
+    },
     "signAndSend": "Sign & Send",
     "signatureRequired": "Signatures Required",
     "sync.status.error": "Can't sync",
