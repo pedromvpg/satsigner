@@ -173,15 +173,6 @@ export default function AccountSettings() {
               />
             </SSHStack>
           )}
-          <SSButton
-            style={styles.button}
-            label={t('account.export.descriptors')}
-            onPress={() =>
-              router.navigate(
-                `/account/${currentAccountId}/settings/export/descriptors`
-              )
-            }
-          />
         </SSVStack>
         <SSVStack>
           <SSHStack>
@@ -202,6 +193,25 @@ export default function AccountSettings() {
                   `/account/${currentAccountId}/settings/import/labels`
                 )
               }
+            />
+          </SSHStack>
+          <SSHStack>
+            <SSButton
+              style={styles.button}
+              label={t('account.view.descriptor')}
+              onPress={() =>
+                router.navigate(
+                  `/account/${currentAccountId}/settings/export/descriptors`
+                )
+              }
+            />
+            <SSButton
+              style={styles.button}
+              label={t('account.export.config')}
+              onPress={() => {
+                // TODO: Implement export config functionality
+                console.log('Export config pressed')
+              }}
             />
           </SSHStack>
           <SSButton
@@ -240,32 +250,58 @@ export default function AccountSettings() {
             </SSFormLayout.Item>
           )}
         </SSFormLayout>
-        {account.policyType === 'multisig' && (
-          <>
-            <SSVStack gap="md" style={styles.multiSigContainer}>
-              <SSMultisigCountSelector
-                maxCount={12}
-                requiredNumber={account.keysRequired!}
-                totalNumber={account.keyCount!}
-                viewOnly
+      </SSVStack>
+      
+      {account.policyType === 'multisig' && (
+        <>
+          <SSVStack gap="md" style={styles.multiSigContainer}>
+            <SSMultisigCountSelector
+              maxCount={12}
+              requiredNumber={account.keysRequired!}
+              totalNumber={account.keyCount!}
+              viewOnly
+            />
+            <SSText center>{t('account.keys.management')}</SSText>
+          </SSVStack>
+          <SSVStack gap="none">
+            {account.keys.map((key, index) => (
+              <SSMultisigKeyControl
+                key={index}
+                isBlackBackground={index % 2 === 0}
+                index={index}
+                keyCount={account.keys.length}
+                keyDetails={key}
+                isSettingsMode={true}
+                accountId={currentAccountId}
               />
-              <SSText center>{t('account.addOrGenerateKeys')}</SSText>
-            </SSVStack>
-            <SSVStack gap="none" style={styles.multiSigKeyControlCOntainer}>
-              {account.keys.map((key, index) => (
-                <SSMultisigKeyControl
-                  key={index}
-                  isBlackBackground={index % 2 === 1}
-                  index={index}
-                  keyCount={account.keyCount}
-                  keyDetails={key}
-                />
-              ))}
-            </SSVStack>
-          </>
-        )}
+            ))}
+          </SSVStack>
+        </>
+      )}
+      
+      {(account.policyType === 'singlesig' || account.policyType === 'watchonly') && (
+        <>
+          <SSVStack gap="md" style={styles.multiSigContainer}>
+            <SSText center>{t('account.keys.management')}</SSText>
+          </SSVStack>
+          <SSVStack gap="none">
+            {account.keys.map((key, index) => (
+              <SSMultisigKeyControl
+                key={index}
+                isBlackBackground={index % 2 === 0}
+                index={index}
+                keyCount={account.keys.length}
+                keyDetails={key}
+                isSettingsMode={true}
+                accountId={currentAccountId}
+              />
+            ))}
+          </SSVStack>
+        </>
+      )}
+      
+      <SSVStack gap="lg" style={styles.mainLayout}>
         <SSVStack style={styles.actionsContainer}>
-          <SSButton label={t('account.duplicate.title')} />
           <SSButton
             label={t('account.delete.title')}
             style={styles.deleteButton}

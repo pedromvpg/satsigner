@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { generateMnemonic, getFingerprint } from '@/api/bdk'
 import SSButton from '@/components/SSButton'
 import SSRadioButton from '@/components/SSRadioButton'
+import SSScriptVersionModal from '@/components/SSScriptVersionModal'
 import SSSelectModal from '@/components/SSSelectModal'
 import SSText from '@/components/SSText'
 import { ENTROPY_TYPES } from '@/config/entropy'
@@ -32,7 +33,8 @@ export default function MultiSigKeySettings() {
     setMnemonic,
     setFingerprint,
     setCreationType,
-    setNetwork
+    setNetwork,
+    setScriptVersion
   ] = useAccountBuilderStore(
     useShallow((state) => [
       state.name,
@@ -43,7 +45,8 @@ export default function MultiSigKeySettings() {
       state.setMnemonic,
       state.setFingerprint,
       state.setCreationType,
-      state.setNetwork
+      state.setNetwork,
+      state.setScriptVersion
     ])
   )
   const network = useBlockchainStore((state) => state.selectedNetwork)
@@ -51,17 +54,27 @@ export default function MultiSigKeySettings() {
   const [localEntropyType, setLocalEntropyType] = useState<EntropyType>('none')
   const [localMnemonicWordCount, setLocalMnemonicWordCount] =
     useState<NonNullable<Key['mnemonicWordCount']>>(24)
+  const [localScriptVersion, setLocalScriptVersion] = 
+    useState<NonNullable<Key['scriptVersion']>>(scriptVersion || 'P2WPKH')
 
   const [entropyModalVisible, setEntropyModalVisible] = useState(false)
   const [mnemonicWordCountModalVisible, setMnemonicWordCountModalVisibile] =
     useState(false)
+  const [scriptVersionModalVisible, setScriptVersionModalVisible] = useState(false)
 
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (scriptVersion) {
+      setLocalScriptVersion(scriptVersion)
+    }
+  }, [scriptVersion])
 
   async function handleOnPress(type: NonNullable<Key['creationType']>) {
     setCreationType(type)
     setEntropy(localEntropyType)
     setMnemonicWordCount(localMnemonicWordCount)
+    setScriptVersion(localScriptVersion)
     setNetwork(network)
 
     if (type === 'generateMnemonic') {
@@ -143,9 +156,11 @@ export default function MultiSigKeySettings() {
             </SSFormLayout.Item>
             <SSFormLayout.Item>
               <SSFormLayout.Label label={t('account.script')} />
-              <SSText center weight="bold">
-                {t(`script.${scriptVersion.toLocaleLowerCase()}.name`)} ({scriptVersion})
-              </SSText>
+              <SSButton
+                label={`${t(`script.${localScriptVersion.toLocaleLowerCase()}.name`)} (${localScriptVersion})`}
+                withSelect
+                onPress={() => setScriptVersionModalVisible(true)}
+              />
             </SSFormLayout.Item>
             <SSFormLayout.Item>
               <SSFormLayout.Label label={t('account.mnemonic.title')} />
@@ -216,6 +231,15 @@ export default function MultiSigKeySettings() {
           />
         ))}
       </SSSelectModal>
+      <SSScriptVersionModal
+        visible={scriptVersionModalVisible}
+        scriptVersion={localScriptVersion}
+        onSelect={(scriptVersion) => {
+          setLocalScriptVersion(scriptVersion)
+          setScriptVersionModalVisible(false)
+        }}
+        onCancel={() => setScriptVersionModalVisible(false)}
+      />
     </SSMainLayout>
   )
 }

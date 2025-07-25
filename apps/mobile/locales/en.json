@@ -40,6 +40,7 @@
     "generate.disclaimer.3": "Losing this information will lose the funds.",
     "generate.multi.title": "Generate Keys",
     "generate.title": "Generate seed",
+    "generate.newSecretSeed": "Generate new secret seed",
     "generate.warning": "Keep this information secret and backed up.",
     "import.descriptor": "Import Descriptor",
     "import.existingSingleWallet": "Exisiting Single Key Wallets",
@@ -49,9 +50,11 @@
     "import.title": "Import existing seed",
     "import.title2": "Import seed",
     "import.watchOnly.title": "Import watch-only",
+    "import.xpub": "Import XPub",
     "import.wif.title": "Import WIF (single key)",
     "import.word.noMatch": "No matching words",
     "key.number": "Key number",
+    "keys.management": "Keys Management",
     "load.sample.bitcoin.address.salvador": "Load sample watch-only EI Salvador",
     "load.sample.bitcoin.address.segwit": "Load sample watch-only Segwit",
     "load.sample.bitcoin.address.tether": "Load sample multi-address watch-only Tether",
@@ -148,6 +151,7 @@
     "syncFailed": "Failed to sync wallet. Make sure you have internet connection.",
     "syncProgress": "Syncing... %{tasksDone}/%{totalTasks} completed",
     "utxos": "UTXOs",
+    "view.descriptor": "View Descriptor",
     "viewMnemonic": "View mnemonic"
   },
   "accounts": {

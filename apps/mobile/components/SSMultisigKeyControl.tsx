@@ -7,7 +7,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { generateMnemonic, getFingerprint } from '@/api/bdk'
 import { SSIconAdd, SSIconGreen } from '@/components/icons'
 import SSButton from '@/components/SSButton'
-import SSScriptVersionModal from '@/components/SSScriptVersionModal'
+
 import SSText from '@/components/SSText'
 import SSTextInput from '@/components/SSTextInput'
 import SSFormLayout from '@/layouts/SSFormLayout'
@@ -15,6 +15,7 @@ import SSHStack from '@/layouts/SSHStack'
 import SSVStack from '@/layouts/SSVStack'
 import { t } from '@/locales'
 import { useAccountBuilderStore } from '@/store/accountBuilder'
+import { useAccountsStore } from '@/store/accounts'
 import { useBlockchainStore } from '@/store/blockchain'
 import { type Key } from '@/types/models/Account'
 import { formatAddress } from '@/utils/format'
@@ -24,13 +25,17 @@ type SSMultisigKeyControlProps = {
   index: number
   keyCount: number
   keyDetails?: Key
+  isSettingsMode?: boolean
+  accountId?: string
 }
 
 function SSMultisigKeyControl({
   isBlackBackground,
   index,
   keyCount,
-  keyDetails
+  keyDetails,
+  isSettingsMode = false,
+  accountId
 }: SSMultisigKeyControlProps) {
   const router = useRouter()
   const [
@@ -53,12 +58,10 @@ function SSMultisigKeyControl({
     ])
   )
   const network = useBlockchainStore((state) => state.selectedNetwork)
+  const updateKeyName = useAccountsStore((state) => state.updateKeyName)
 
   const [isExpanded, setIsExpanded] = useState(false)
   const [localKeyName, setLocalKeyName] = useState(keyDetails?.name || '')
-  const [localScriptVersion, setLocalScriptVersion] = 
-    useState<NonNullable<Key['scriptVersion']>>(keyDetails?.scriptVersion || scriptVersion || 'P2WPKH')
-  const [scriptVersionModalVisible, setScriptVersionModalVisible] = useState(false)
   const [loading, setLoading] = useState(false)
 
   function getSourceLabel() {
@@ -80,11 +83,11 @@ function SSMultisigKeyControl({
 
     setCreationType(type)
     setKeyName(localKeyName)
-    setScriptVersion(localScriptVersion)
+    setScriptVersion(scriptVersion || 'P2WPKH')
     setNetwork(network)
 
     if (type === 'generateMnemonic') {
-      // Navigate to policy type component instead of generating directly
+      // Navigate to each key policy type component
       router.navigate(`/account/add/multiSig/keySettings/${index}`)
     } else if (type === 'importMnemonic') {
       router.navigate(`/account/add/import/mnemonic/${index}`)
@@ -96,7 +99,39 @@ function SSMultisigKeyControl({
     }
   }
 
-  if (typeof keyDetails?.secret === 'string') return null
+  function handleCompletedKeyAction(action: 'dropSeed' | 'shareXpub' | 'shareDescriptor') {
+    // Handle actions for completed keys
+    switch (action) {
+      case 'dropSeed':
+        // TODO: Implement drop seed functionality
+        console.log('Drop seed and keep xpub for key', index)
+        break
+      case 'shareXpub':
+        // TODO: Implement share xpub functionality
+        console.log('Share xpub for key', index)
+        break
+      case 'shareDescriptor':
+        // TODO: Implement share descriptor functionality
+        console.log('Share descriptor for key', index)
+        break
+    }
+  }
+
+  // Check if key is completed (has extended public key or is in settings mode)
+  const isKeyCompleted = isSettingsMode ? true : (keyDetails && 
+    typeof keyDetails.secret === 'object' && 
+    keyDetails.secret?.extendedPublicKey)
+
+  function handleKeyNameChange(newName: string) {
+    setLocalKeyName(newName)
+    
+    // Save to store if in settings mode and we have an account ID
+    if (isSettingsMode && accountId && newName.trim()) {
+      updateKeyName(accountId, index, newName.trim())
+    }
+  }
+
+  if (typeof keyDetails?.secret === 'string' && !isSettingsMode) return null
 
   return (
     <View
@@ -139,9 +174,9 @@ function SSMultisigKeyControl({
               {keyDetails?.fingerprint ?? t('account.fingerprint')}
             </SSText>
             <SSText
-              color={keyDetails?.secret.extendedPublicKey ? 'white' : 'muted'}
+              color={keyDetails && typeof keyDetails.secret === 'object' && keyDetails.secret?.extendedPublicKey ? 'white' : 'muted'}
             >
-              {keyDetails?.secret.extendedPublicKey
+              {keyDetails && typeof keyDetails.secret === 'object' && keyDetails.secret?.extendedPublicKey
                 ? formatAddress(keyDetails.secret.extendedPublicKey, 6)
                 : t('account.seed.publicKey')}
             </SSText>
@@ -151,60 +186,69 @@ function SSMultisigKeyControl({
 
       {isExpanded && (
         <SSVStack style={{ paddingHorizontal: 16, paddingBottom: 16 }} gap="lg">
-          <SSFormLayout>
-            <SSFormLayout.Item>
-              <SSFormLayout.Label label={t('account.name')} />
-              <SSTextInput
-                value={localKeyName}
-                onChangeText={setLocalKeyName}
-              />
-            </SSFormLayout.Item>
-            <SSFormLayout.Item>
-              <SSFormLayout.Label label={t('account.script')} />
-              <SSButton
-                label={`${t(`script.${localScriptVersion.toLocaleLowerCase()}.name`)} (${localScriptVersion})`}
-                withSelect
-                onPress={() => setScriptVersionModalVisible(true)}
-              />
-            </SSFormLayout.Item>
-          </SSFormLayout>
+          {(!isKeyCompleted || isSettingsMode) && (
+            <SSFormLayout>
+              <SSFormLayout.Item>
+                <SSFormLayout.Label label={t('account.name')} />
+                <SSTextInput
+                  value={localKeyName}
+                  onChangeText={handleKeyNameChange}
+                />
+              </SSFormLayout.Item>
+            </SSFormLayout>
+          )}
           
           <SSVStack gap="sm">
-            <SSButton
-              label={t('account.generate.title')}
-              variant="secondary"
-              disabled={!localKeyName.trim()}
-              loading={loading}
-              onPress={() => handleAction('generateMnemonic')}
-            />
-            <SSButton
-              label={t('account.import.title2')}
-              disabled={!localKeyName.trim()}
-              onPress={() => handleAction('importMnemonic')}
-            />
-            <SSButton
-              label={t('account.import.descriptor')}
-              disabled={!localKeyName.trim()}
-              onPress={() => handleAction('importDescriptor')}
-            />
-            <SSButton
-              label={t('account.import.xpub')}
-              disabled={!localKeyName.trim()}
-              onPress={() => handleAction('importExtendedPub')}
-            />
+            {isKeyCompleted ? (
+              <>
+                <SSButton
+                  label={t('account.seed.dropAndKeep')}
+                  onPress={() => handleCompletedKeyAction('dropSeed')}
+                  style={{
+                    backgroundColor: 'black',
+                    borderWidth: 1,
+                    borderColor: 'white'
+                  }}
+                />
+                <SSButton
+                  label={t('account.seed.sharePub')}
+                  onPress={() => handleCompletedKeyAction('shareXpub')}
+                />
+                <SSButton
+                  label={t('account.seed.shareDescriptor')}
+                  onPress={() => handleCompletedKeyAction('shareDescriptor')}
+                />
+              </>
+            ) : (
+              <>
+                <SSButton
+                  label={t('account.generate.newSecretSeed')}
+                  disabled={!localKeyName.trim()}
+                  loading={loading}
+                  onPress={() => handleAction('generateMnemonic')}
+                />
+                <SSButton
+                  label={t('account.import.title2')}
+                  disabled={!localKeyName.trim()}
+                  onPress={() => handleAction('importMnemonic')}
+                />
+                <SSButton
+                  label={t('account.import.descriptor')}
+                  disabled={!localKeyName.trim()}
+                  onPress={() => handleAction('importDescriptor')}
+                />
+                <SSButton
+                  label={t('account.import.xpub')}
+                  disabled={!localKeyName.trim()}
+                  onPress={() => handleAction('importExtendedPub')}
+                />
+              </>
+            )}
           </SSVStack>
         </SSVStack>
       )}
 
-      <SSScriptVersionModal
-        visible={scriptVersionModalVisible}
-        scriptVersion={localScriptVersion}
-        onSelect={(scriptVersion) => {
-          setLocalScriptVersion(scriptVersion)
-          setScriptVersionModalVisible(false)
-        }}
-        onCancel={() => setScriptVersionModalVisible(false)}
-      />
+
     </View>
   )
 }
