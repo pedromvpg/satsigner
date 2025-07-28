@@ -23,6 +23,7 @@ type AccountBuilderState = {
   externalDescriptor?: Secret['externalDescriptor']
   internalDescriptor?: Secret['internalDescriptor']
   extendedPublicKey?: Secret['extendedPublicKey']
+  internalExtendedPublicKey?: Secret['extendedPublicKey']
   fingerprint?: Key['fingerprint']
   scriptVersion: NonNullable<Key['scriptVersion']>
   keys: Account['keys']
@@ -50,6 +51,9 @@ type AccountBuilderAction = {
   ) => void
   setExtendedPublicKey: (
     extendedPublicKey: NonNullable<Secret['extendedPublicKey']>
+  ) => void
+  setInternalExtendedPublicKey: (
+    internalExtendedPublicKey: NonNullable<Secret['extendedPublicKey']>
   ) => void
   setFingerprint: (
     fingerprint: NonNullable<AccountBuilderState['fingerprint']>
@@ -87,6 +91,7 @@ const initialState: AccountBuilderState = {
   externalDescriptor: undefined,
   internalDescriptor: undefined,
   extendedPublicKey: undefined,
+  internalExtendedPublicKey: undefined,
   fingerprint: undefined,
   scriptVersion: 'P2WPKH',
   keys: [],
@@ -134,6 +139,9 @@ const useAccountBuilderStore = create<
   setExtendedPublicKey: (extendedPublicKey) => {
     set({ extendedPublicKey })
   },
+  setInternalExtendedPublicKey: (internalExtendedPublicKey) => {
+    set({ internalExtendedPublicKey })
+  },
   setFingerprint: (fingerprint) => {
     set({ fingerprint })
   },
@@ -151,7 +159,8 @@ const useAccountBuilderStore = create<
       scriptVersion,
       externalDescriptor,
       internalDescriptor,
-      extendedPublicKey
+      extendedPublicKey,
+      internalExtendedPublicKey
     } = get()
     const key: Key = {
       index,
@@ -163,7 +172,8 @@ const useAccountBuilderStore = create<
         ...(passphrase && { passphrase }),
         ...(externalDescriptor && { externalDescriptor }),
         ...(internalDescriptor && { internalDescriptor }),
-        ...(extendedPublicKey && { extendedPublicKey })
+        ...(extendedPublicKey && { extendedPublicKey }),
+        ...(internalExtendedPublicKey && { internalExtendedPublicKey })
       },
       iv: uuid.v4().replace(/-/g, ''),
       fingerprint,
@@ -264,9 +274,9 @@ const useAccountBuilderStore = create<
       mnemonic: '',
       passphrase: undefined,
       fingerprint: undefined,
-      scriptVersion: 'P2WPKH',
       externalDescriptor: undefined,
-      extendedPublicKey: undefined
+      extendedPublicKey: undefined,
+      internalExtendedPublicKey: undefined
     })
   },
   clearAccount: () => {

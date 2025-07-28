@@ -104,14 +104,21 @@ async function getWalletData(account: Account, network: Network) {
     case 'multisig': {
       const extendedPublicKeys = account.keys
         .map((key) => {
-          if (typeof key.secret === 'object' && key.secret?.extendedPublicKey) {
-            return key.secret.extendedPublicKey
+          if (typeof key.secret === 'object') {
+            if (key.secret.extendedPublicKey) {
+              return key.secret.extendedPublicKey
+            }
+            if (key.secret.xpub) {
+              return key.secret.xpub
+            }
           }
           return null
         })
         .filter((x): x is string => x !== null)
 
-      const multisigDescriptorString = `wsh(multi(${account.keysRequired},${extendedPublicKeys.join(',')}))`
+      const multisigDescriptorString = `wsh(multi(${
+        account.keysRequired
+      },${extendedPublicKeys.join(',')}))`
       const multisigDescriptor = await new Descriptor().create(
         multisigDescriptorString,
         network

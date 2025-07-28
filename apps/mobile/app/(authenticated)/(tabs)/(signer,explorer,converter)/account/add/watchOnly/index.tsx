@@ -417,7 +417,9 @@ export default function WatchOnly() {
                         label={t('account.script').toUpperCase()}
                       />
                       <SSButton
-                        label={`${t(`script.${scriptVersion.toLocaleLowerCase()}.name`)} (${scriptVersion})`}
+                        label={`${t(
+                          `script.${scriptVersion.toLocaleLowerCase()}.name`
+                        )} (${scriptVersion})`}
                         withSelect
                         onPress={() => setScriptVersionModalVisible(true)}
                       />

@@ -21,7 +21,11 @@ type AccountsAction = {
   addAccount: (account: Account) => void
   updateAccount: (account: Account) => Promise<void>
   updateAccountName: (id: Account['id'], newName: string) => void
-  updateKeyName: (accountId: Account['id'], keyIndex: number, newName: string) => void
+  updateKeyName: (
+    accountId: Account['id'],
+    keyIndex: number,
+    newName: string
+  ) => void
   updateAccountNostr: (
     id: Account['id'],
     nostr: Partial<Account['nostr']>
@@ -94,7 +98,10 @@ const useAccountsStore = create<AccountsState & AccountsAction>()(
             const accountIndex = state.accounts.findIndex(
               (account) => account.id === accountId
             )
-            if (accountIndex !== -1 && state.accounts[accountIndex].keys[keyIndex]) {
+            if (
+              accountIndex !== -1 &&
+              state.accounts[accountIndex].keys[keyIndex]
+            ) {
               state.accounts[accountIndex].keys[keyIndex].name = newName
             }
           })

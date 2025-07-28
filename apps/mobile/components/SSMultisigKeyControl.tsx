@@ -7,7 +7,6 @@ import { useShallow } from 'zustand/react/shallow'
 import { generateMnemonic, getFingerprint } from '@/api/bdk'
 import { SSIconAdd, SSIconGreen } from '@/components/icons'
 import SSButton from '@/components/SSButton'
-
 import SSText from '@/components/SSText'
 import SSTextInput from '@/components/SSTextInput'
 import SSFormLayout from '@/layouts/SSFormLayout'
@@ -41,7 +40,6 @@ function SSMultisigKeyControl({
   const [
     scriptVersion,
     setKeyName,
-    setScriptVersion,
     setMnemonic,
     setFingerprint,
     setCreationType,
@@ -50,7 +48,6 @@ function SSMultisigKeyControl({
     useShallow((state) => [
       state.scriptVersion,
       state.setKeyName,
-      state.setScriptVersion,
       state.setMnemonic,
       state.setFingerprint,
       state.setCreationType,
@@ -75,6 +72,36 @@ function SSMultisigKeyControl({
       return t('account.seed.importedSeed', { name: keyDetails.scriptVersion })
     } else if (keyDetails.creationType === 'importDescriptor') {
       return t('account.seed.external')
+    } else if (keyDetails.creationType === 'importExtendedPub') {
+      // Show the correct label according to the selected script version
+      switch (keyDetails.scriptVersion) {
+        case 'P2PKH':
+          return t('account.import.xpub')
+        case 'P2SH-P2WPKH':
+          return t('account.import.ypub')
+        case 'P2WPKH':
+          return t('account.import.zpub')
+        case 'P2TR':
+          return t('account.import.vpub')
+        default:
+          return t('account.import.xpub')
+      }
+    }
+  }
+
+  // Always use the global scriptVersion from the store
+  function getImportExtendedLabel() {
+    switch (scriptVersion) {
+      case 'P2PKH':
+        return t('account.import.xpub')
+      case 'P2SH-P2WPKH':
+        return t('account.import.ypub')
+      case 'P2WPKH':
+        return t('account.import.zpub')
+      case 'P2TR':
+        return t('account.import.vpub')
+      default:
+        return t('account.import.xpub')
     }
   }
 
@@ -83,7 +110,7 @@ function SSMultisigKeyControl({
 
     setCreationType(type)
     setKeyName(localKeyName)
-    setScriptVersion(scriptVersion || 'P2WPKH')
+    // scriptVersion is set only in the initial policy selection and never changed here
     setNetwork(network)
 
     if (type === 'generateMnemonic') {
@@ -99,7 +126,9 @@ function SSMultisigKeyControl({
     }
   }
 
-  function handleCompletedKeyAction(action: 'dropSeed' | 'shareXpub' | 'shareDescriptor') {
+  function handleCompletedKeyAction(
+    action: 'dropSeed' | 'shareXpub' | 'shareDescriptor'
+  ) {
     // Handle actions for completed keys
     switch (action) {
       case 'dropSeed':
@@ -118,13 +147,15 @@ function SSMultisigKeyControl({
   }
 
   // Check if key is completed (has extended public key or is in settings mode)
-  const isKeyCompleted = isSettingsMode ? true : (keyDetails && 
-    typeof keyDetails.secret === 'object' && 
-    keyDetails.secret?.extendedPublicKey)
+  const isKeyCompleted = isSettingsMode
+    ? true
+    : keyDetails &&
+      typeof keyDetails.secret === 'object' &&
+      (keyDetails.secret?.extendedPublicKey || keyDetails.secret?.xpub)
 
   function handleKeyNameChange(newName: string) {
     setLocalKeyName(newName)
-    
+
     // Save to store if in settings mode and we have an account ID
     if (isSettingsMode && accountId && newName.trim()) {
       updateKeyName(accountId, index, newName.trim())
@@ -174,10 +205,24 @@ function SSMultisigKeyControl({
               {keyDetails?.fingerprint ?? t('account.fingerprint')}
             </SSText>
             <SSText
-              color={keyDetails && typeof keyDetails.secret === 'object' && keyDetails.secret?.extendedPublicKey ? 'white' : 'muted'}
+              color={
+                keyDetails &&
+                typeof keyDetails.secret === 'object' &&
+                (keyDetails.secret?.xpub ||
+                  keyDetails.secret?.extendedPublicKey)
+                  ? 'white'
+                  : 'muted'
+              }
             >
-              {keyDetails && typeof keyDetails.secret === 'object' && keyDetails.secret?.extendedPublicKey
-                ? formatAddress(keyDetails.secret.extendedPublicKey, 6)
+              {keyDetails &&
+              typeof keyDetails.secret === 'object' &&
+              (keyDetails.secret?.xpub || keyDetails.secret?.extendedPublicKey)
+                ? formatAddress(
+                    (keyDetails.secret.xpub ||
+                      keyDetails.secret.extendedPublicKey) ??
+                      '',
+                    6
+                  )
                 : t('account.seed.publicKey')}
             </SSText>
           </SSVStack>
@@ -197,7 +242,7 @@ function SSMultisigKeyControl({
               </SSFormLayout.Item>
             </SSFormLayout>
           )}
-          
+
           <SSVStack gap="sm">
             {isKeyCompleted ? (
               <>
@@ -238,7 +283,7 @@ function SSMultisigKeyControl({
                   onPress={() => handleAction('importDescriptor')}
                 />
                 <SSButton
-                  label={t('account.import.xpub')}
+                  label={getImportExtendedLabel()}
                   disabled={!localKeyName.trim()}
                   onPress={() => handleAction('importExtendedPub')}
                 />
@@ -247,8 +292,6 @@ function SSMultisigKeyControl({
           </SSVStack>
         </SSVStack>
       )}
-
-
     </View>
   )
 }

@@ -1,7 +1,7 @@
 import { type Network } from 'bdk-rn/lib/lib/enums'
 import * as Print from 'expo-print'
-import * as Sharing from 'expo-sharing'
 import { Redirect, router, Stack, useLocalSearchParams } from 'expo-router'
+import * as Sharing from 'expo-sharing'
 import { useEffect, useRef, useState } from 'react'
 import { ScrollView, View } from 'react-native'
 import { captureRef } from 'react-native-view-shot'
@@ -79,7 +79,9 @@ export default function ExportDescriptors() {
     if (!account) return
     const date = new Date().toISOString().slice(0, -5)
     const ext = 'txt'
-    const filename = `${t('export.file.name.descriptors')}_${accountId}_${date}.${ext}`
+    const filename = `${t(
+      'export.file.name.descriptors'
+    )}_${accountId}_${date}.${ext}`
     shareFile({
       filename,
       fileContent: exportContent,
@@ -90,7 +92,7 @@ export default function ExportDescriptors() {
 
   async function exportDescriptorsPDF() {
     if (!account || !exportContent) return
-    
+
     try {
       // Generate PDF with QR code using a different approach
       generatePDF()
@@ -101,7 +103,7 @@ export default function ExportDescriptors() {
 
   async function generatePDF() {
     if (!account || !exportContent) return
-    
+
     try {
       // Capture QR code as image using react-native-view-shot
       let qrDataURL = ''
@@ -112,7 +114,7 @@ export default function ExportDescriptors() {
           result: 'data-uri'
         })
       }
-      
+
       await createPDFWithQR(qrDataURL)
     } catch (error) {
       console.error('Error generating PDF:', error)
@@ -123,10 +125,10 @@ export default function ExportDescriptors() {
 
   async function createPDFWithQR(qrDataURL: string) {
     if (!account) return
-    
+
     const date = new Date().toISOString().slice(0, -5)
     const title = `Output descriptor for ${account.name}`
-    
+
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -249,12 +251,16 @@ export default function ExportDescriptors() {
           
           <div class="header">${title}</div>
           
-          ${qrDataURL ? `
+          ${
+            qrDataURL
+              ? `
           <div class="qr-section">
             <img src="${qrDataURL}" class="qr-code" alt="QR Code for descriptor" />
             <div class="qr-info">Scan QR code to import this descriptor</div>
           </div>
-          ` : ''}
+          `
+              : ''
+          }
           
           <div class="descriptor-section">
             <div class="descriptor-title">Bitcoin Descriptor:</div>
@@ -286,8 +292,10 @@ export default function ExportDescriptors() {
         base64: false
       })
 
-      const filename = `${t('export.file.name.descriptors')}_${accountId}_${date}.pdf`
-      
+      const filename = `${t(
+        'export.file.name.descriptors'
+      )}_${accountId}_${date}.pdf`
+
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, {
           mimeType: 'application/pdf',
@@ -299,8 +307,6 @@ export default function ExportDescriptors() {
       console.error('Error creating PDF:', error)
     }
   }
-
-
 
   if (!account) return <Redirect href="/" />
 
@@ -323,18 +329,15 @@ export default function ExportDescriptors() {
         <SSText center uppercase color="muted">
           {t('account.export.descriptors')}
         </SSText>
-        
+
         {exportContent && (
           <View style={{ alignItems: 'center', marginVertical: 20 }}>
             <View ref={qrRef} style={{ padding: 10, backgroundColor: 'white' }}>
-              <SSQRCode 
-                value={exportContent} 
-                size={200}
-              />
+              <SSQRCode value={exportContent} size={200} />
             </View>
           </View>
         )}
-        
+
         <View
           style={{
             padding: 10,

@@ -34,6 +34,8 @@ export type Secret = {
   internalDescriptor?: string
   /** Only for watch-only */
   extendedPublicKey?: string
+  /** Only for imported xpubs */
+  xpub?: string
 }
 
 export type Key = {

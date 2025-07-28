@@ -25,7 +25,8 @@ export default function ImportDescriptor() {
 
   const [loading, setLoading] = useState(false)
   const [localDescriptor, setLocalDescriptor] = useState('')
-  const [optionalDescriptor, setOptionalDescriptor] = useState('')
+  const [internalDescriptor, setInternalDescriptor] = useState('')
+  const [alarm, setAlarm] = useState('')
 
   const [
     setKey,
@@ -33,6 +34,7 @@ export default function ImportDescriptor() {
     updateKeyFingerprint,
     setKeyDerivationPath,
     setExtendedPublicKey,
+    setInternalExtendedPublicKey,
     clearKeyState
   ] = useAccountBuilderStore(
     useShallow((state) => [
@@ -41,6 +43,7 @@ export default function ImportDescriptor() {
       state.updateKeyFingerprint,
       state.setKeyDerivationPath,
       state.setExtendedPublicKey,
+      state.setInternalExtendedPublicKey,
       state.clearKeyState
     ])
   )
@@ -50,36 +53,46 @@ export default function ImportDescriptor() {
     setLocalDescriptor(text)
   }
 
-  async function handleOnPressPasteOptional() {
+  async function handleOnPressPasteInternal() {
     const text = await Clipboard.getStringAsync()
-    setOptionalDescriptor(text)
+    setInternalDescriptor(text)
   }
 
   async function handleOnPressConfirm() {
     setLoading(true)
-    const descriptor = await new Descriptor().create(
-      localDescriptor,
-      network as Network
-    )
-    const { fingerprint, derivationPath } = await parseDescriptor(descriptor)
-    const extendedKey = await extractExtendedKeyFromDescriptor(descriptor)
+    setAlarm('')
+    try {
+      const descriptor = await new Descriptor().create(
+        localDescriptor,
+        network as Network
+      )
+      const { fingerprint, derivationPath } = await parseDescriptor(descriptor)
+      const extendedKey = await extractExtendedKeyFromDescriptor(descriptor)
 
-    setExternalDescriptor(localDescriptor)
-    setExtendedPublicKey(extendedKey)
-    setKey(Number(keyIndex))
-    updateKeyFingerprint(Number(keyIndex), fingerprint)
-    setKeyDerivationPath(Number(keyIndex), derivationPath)
-    
-    // Handle optional descriptor if provided
-    if (optionalDescriptor.trim()) {
-      // TODO: Store or process optional descriptor as needed
-      console.log('Optional descriptor provided:', optionalDescriptor)
+      setExternalDescriptor(localDescriptor)
+      setExtendedPublicKey(extendedKey)
+      setKey(Number(keyIndex))
+      updateKeyFingerprint(Number(keyIndex), fingerprint)
+      setKeyDerivationPath(Number(keyIndex), derivationPath)
+      clearKeyState()
+
+      // Process internal descriptor if provided
+      if (internalDescriptor) {
+        const internalDesc = await new Descriptor().create(
+          internalDescriptor,
+          network as Network
+        )
+        const internalExtendedKey =
+          await extractExtendedKeyFromDescriptor(internalDesc)
+        setInternalExtendedPublicKey(internalExtendedKey)
+      }
+
+      setLoading(false)
+      router.dismiss(1)
+    } catch (e) {
+      setAlarm(t('watchonly.importDescriptor.invalid'))
+      setLoading(false)
     }
-    
-    clearKeyState()
-
-    setLoading(false)
-    router.dismiss(2)
   }
 
   return (
@@ -99,35 +112,49 @@ export default function ImportDescriptor() {
               <SSTextInput
                 align="left"
                 style={{
-                  height: 300,
-                  verticalAlign: 'top',
-                  paddingVertical: 16
-                }}
-                multiline
-                numberOfLines={10}
-                value={localDescriptor}
-                onChangeText={setLocalDescriptor}
-              />
-            </SSFormLayout.Item>
-            <SSFormLayout.Item>
-              <SSFormLayout.Label label={t('common.descriptor') + ' (' + t('common.optional') + ')'} />
-              <SSTextInput
-                align="left"
-                style={{
                   height: 150,
                   verticalAlign: 'top',
                   paddingVertical: 16
                 }}
                 multiline
                 numberOfLines={5}
-                value={optionalDescriptor}
-                onChangeText={setOptionalDescriptor}
+                value={localDescriptor}
+                onChangeText={setLocalDescriptor}
               />
             </SSFormLayout.Item>
+            <SSButton label={t('common.paste')} onPress={handleOnPressPaste} />
+            <SSFormLayout.Item>
+              <SSFormLayout.Label
+                label={t('watchonly.importDescriptor.internal')}
+              />
+              <SSTextInput
+                align="left"
+                style={{
+                  height: 100,
+                  verticalAlign: 'top',
+                  paddingVertical: 16
+                }}
+                multiline
+                numberOfLines={3}
+                value={internalDescriptor}
+                onChangeText={setInternalDescriptor}
+                placeholder={t(
+                  'watchonly.importDescriptor.internalPlaceholder'
+                )}
+              />
+            </SSFormLayout.Item>
+            <SSButton
+              label={t('common.paste')}
+              onPress={handleOnPressPasteInternal}
+            />
           </SSFormLayout>
-          <SSButton label={t('common.paste')} onPress={handleOnPressPaste} />
-          <SSButton label={t('common.paste') + ' (' + t('common.optional') + ')'} onPress={handleOnPressPasteOptional} />
           <SSButton label={t('camera.scanQRCode')} onPress={() => {}} />
+          <SSButton label={t('watchonly.read.nfc')} disabled />
+          {alarm ? (
+            <SSText style={{ color: 'red', textAlign: 'center' }}>
+              {alarm}
+            </SSText>
+          ) : null}
           <SSButton
             variant="outline"
             label={t('account.import.fromOtherWallet')}
@@ -141,7 +168,6 @@ export default function ImportDescriptor() {
             label={t('common.confirm')}
             variant="secondary"
             loading={loading}
-            disabled={!localDescriptor.trim()}
             onPress={handleOnPressConfirm}
           />
           <SSButton

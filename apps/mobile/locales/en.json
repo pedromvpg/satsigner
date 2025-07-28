@@ -51,7 +51,10 @@
     "import.title": "Import existing seed",
     "import.title2": "Import seed",
     "import.watchOnly.title": "Import watch-only",
-    "import.xpub": "Import XPub",
+    "import.xpub": "Import XPUB",
+    "import.ypub": "Import YPUB",
+    "import.zpub": "Import ZPUB",
+    "import.vpub": "Import VPUB",
     "import.wif.title": "Import WIF (single key)",
     "import.word.noMatch": "No matching words",
     "key.number": "Key number",
@@ -260,6 +263,7 @@
     "enableCameraAccess": "Enable Camera Access",
     "permissions": "Enable camera access in your phone's settings to scan a QR code.",
     "scanQRCode": "Scan QRCode",
+    "scanNFC": "Scan NFC",
     "scanText": "Scan any Bitcoin or Lightning related QR code."
   },
   "common": {
@@ -320,7 +324,9 @@
     "valid": "Valid",
     "version": "Version",
     "warning": "Warning",
-    "yes": "Yes"
+    "clearKeys": "You will lose all created keys. Are you sure?",
+    "yes": "Yes",
+    "unexpectedError": "An unexpected error occurred. Please try again."
   },
   "converter": {
     "currency.bitcoin": "Bitcoin",
@@ -410,7 +416,9 @@
     "invalid.url": "Invalid URL",
     "notFound.wallet": "Wallet not found",
     "require.name": "Name is required",
-    "require.url": "URL is required"
+    "require.url": "URL is required",
+    "scriptTypeMismatch": "All keys must have the same script type. Please check your keys.",
+    "error_scriptTypeMismatch": "All keys must have the same script type. Please check your keys."
   },
   "explorer": {
     "block.date": "Date (from header)",
@@ -459,7 +467,11 @@
   },
   "import": {
     "from": "Import from %{name}",
-    "success": "Imported %{importCount} from a total of %{total} labels matching your wallet"
+    "success": "Imported %{importCount} from a total of %{total} labels matching your wallet",
+    "xpub": "Import xpub",
+    "ypub": "Import ypub",
+    "zpub": "Import zpub",
+    "vpub": "Import vpub"
   },
   "navigation": {
     "item.bitcoin": "Bitcoin",
@@ -971,11 +983,15 @@
     "importAddress.label": "Address",
     "importAddress.text": "A single bitcoin address",
     "importAddress.title": "Address",
-    "importDescriptor.external": "External Descriptor",
-    "importDescriptor.internal": "Internal Descriptor (optional)",
-    "importDescriptor.label": "Descriptor",
-    "importDescriptor.text": "A Bitcoin descriptor is a flexible and expressive way to describe how Bitcoin addresses and keys are derived and used within a wallet. Introduced in BIP 174, descriptors allow users to specify the structure of their wallets in a more human-readable format. They can represent various types of addresses, including standard pay-to-public-key-hash (P2PKH), pay-to-script-hash (P2SH), and more complex constructions such as multisig. Descriptors improve wallet interoperability and make it easier for software to understand how to derive keys and addresses based on user-defined rules.",
-    "importDescriptor.title": "Descriptor",
+    "importDescriptor": {
+      "external": "External Descriptor",
+      "internal": "Internal Descriptor (optional)",
+      "internalPlaceholder": "Enter internal descriptor (optional)",
+      "label": "Descriptor",
+      "text": "A Bitcoin descriptor is a flexible and expressive way to describe how Bitcoin addresses and keys are derived and used within a wallet. Introduced in BIP 174, descriptors allow users to specify the structure of their wallets in a more human-readable format. They can represent various types of addresses, including standard pay-to-public-key-hash (P2PKH), pay-to-script-hash (P2SH), and more complex constructions such as multisig. Descriptors improve wallet interoperability and make it easier for software to understand how to derive keys and addresses based on user-defined rules.",
+      "title": "Descriptor",
+      "invalid": "Invalid descriptor. Please check your input."
+    },
     "importExtendedPub.label": "XPUB / YPUB / ZPUB",
     "importExtendedPub.text": "An extended public key is a type of key used in Bitcoin that allows for the generation of multiple public addresses from a single key. It is part of the hierarchical deterministic (HD) wallet structure defined by BIP32. An xpub can generate child public keys, which can be used to receive funds without exposing the corresponding private keys. This feature is useful for managing multiple addresses while maintaining privacy and security, as users can receive payments at different addresses without needing to create new wallets or expose sensitive information.",
     "importExtendedPub.title": "Extended Public Key",

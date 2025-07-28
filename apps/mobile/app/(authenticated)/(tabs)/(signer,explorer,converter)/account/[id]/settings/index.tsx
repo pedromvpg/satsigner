@@ -243,7 +243,9 @@ export default function AccountSettings() {
             <SSFormLayout.Item>
               <SSFormLayout.Label label={t('account.script')} />
               <SSButton
-                label={`${t(`script.${scriptVersion.toLocaleLowerCase()}.name`)} (${scriptVersion})`}
+                label={`${t(
+                  `script.${scriptVersion.toLocaleLowerCase()}.name`
+                )} (${scriptVersion})`}
                 onPress={() => setScriptVersionModalVisible(true)}
                 withSelect
               />
@@ -251,7 +253,7 @@ export default function AccountSettings() {
           )}
         </SSFormLayout>
       </SSVStack>
-      
+
       {account.policyType === 'multisig' && (
         <>
           <SSVStack gap="md" style={styles.multiSigContainer}>
@@ -271,15 +273,16 @@ export default function AccountSettings() {
                 index={index}
                 keyCount={account.keys.length}
                 keyDetails={key}
-                isSettingsMode={true}
+                isSettingsMode
                 accountId={currentAccountId}
               />
             ))}
           </SSVStack>
         </>
       )}
-      
-      {(account.policyType === 'singlesig' || account.policyType === 'watchonly') && (
+
+      {(account.policyType === 'singlesig' ||
+        account.policyType === 'watchonly') && (
         <>
           <SSVStack gap="md" style={styles.multiSigContainer}>
             <SSText center>{t('account.keys.management')}</SSText>
@@ -292,14 +295,14 @@ export default function AccountSettings() {
                 index={index}
                 keyCount={account.keys.length}
                 keyDetails={key}
-                isSettingsMode={true}
+                isSettingsMode
                 accountId={currentAccountId}
               />
             ))}
           </SSVStack>
         </>
       )}
-      
+
       <SSVStack gap="lg" style={styles.mainLayout}>
         <SSVStack style={styles.actionsContainer}>
           <SSButton

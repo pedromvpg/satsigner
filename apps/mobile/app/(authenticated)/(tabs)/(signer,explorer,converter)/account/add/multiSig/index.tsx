@@ -20,14 +20,15 @@ import { type Key } from '@/types/models/Account'
 
 export default function MultiSig() {
   const router = useRouter()
-  const [name, setKeyCount, setKeysRequired, setScriptVersion] = useAccountBuilderStore(
-    useShallow((state) => [
-      state.name,
-      state.setKeyCount,
-      state.setKeysRequired,
-      state.setScriptVersion
-    ])
-  )
+  const [name, setKeyCount, setKeysRequired, setScriptVersion] =
+    useAccountBuilderStore(
+      useShallow((state) => [
+        state.name,
+        state.setKeyCount,
+        state.setKeysRequired,
+        state.setScriptVersion
+      ])
+    )
 
   const [localKeyCount, setLocalKeyCount] = useState(DEFAULT_MULTISIG_KEY_COUNT)
   const [localKeysRequired, setLocalKeysRequired] = useState(
@@ -76,7 +77,9 @@ export default function MultiSig() {
             <SSFormLayout.Item>
               <SSFormLayout.Label label={t('account.script')} />
               <SSButton
-                label={`${t(`script.${localScriptVersion.toLocaleLowerCase()}.name`)} (${localScriptVersion})`}
+                label={`${t(
+                  `script.${localScriptVersion.toLocaleLowerCase()}.name`
+                )} (${localScriptVersion})`}
                 withSelect
                 onPress={() => setScriptVersionModalVisible(true)}
               />
