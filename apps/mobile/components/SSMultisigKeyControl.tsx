@@ -144,8 +144,7 @@ function SSMultisigKeyControl({
         handleShareXpub()
         break
       case 'shareDescriptor':
-        // TODO: Implement share descriptor functionality
-        console.log('Share descriptor for key', index)
+        handleShareDescriptor()
         break
     }
   }
@@ -220,6 +219,25 @@ function SSMultisigKeyControl({
     if (!accountId) return
     router.navigate(
       `/account/${accountId}/settings/export/shareXpub?keyIndex=${index}`
+    )
+  }
+
+  function handleShareDescriptor() {
+    if (!accountId) return
+
+    // Debug logging to see what data is available
+    console.log('Share descriptor debug:', {
+      accountId,
+      keyIndex: index,
+      keyDetails,
+      hasSecret: !!keyDetails?.secret,
+      secretType: typeof keyDetails?.secret,
+      fingerprint: keyDetails?.fingerprint,
+      derivationPath: keyDetails?.derivationPath
+    })
+
+    router.navigate(
+      `/account/${accountId}/settings/export/shareDescriptor?keyIndex=${index}`
     )
   }
 
