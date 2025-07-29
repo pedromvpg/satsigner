@@ -117,6 +117,7 @@ export default function AccountSettings() {
       const pin = await getItem(PIN_KEY)
       if (!pin) return
       const keys: Key[] = []
+      setNetwork(account.network)
       for (const key of account.keys) {
         if (typeof key.secret === 'string') {
           try {
@@ -269,7 +270,6 @@ export default function AccountSettings() {
 
       {account.policyType === 'multisig' && (
         <>
-        {console.log('decryptedKeys:', decryptedKeys)}
           <SSVStack gap="md" style={styles.multiSigContainer}>
             <SSMultisigCountSelector
               maxCount={12}

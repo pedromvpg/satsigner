@@ -46,57 +46,83 @@ export default function ExportDescriptors() {
 
         const temporaryAccount = JSON.parse(JSON.stringify(account)) as Account
 
+        // Decrypt all keys and extract fingerprint, derivation path, and public key
         for (const key of temporaryAccount.keys) {
-          const decryptedSecretString = await aesDecrypt(
-            typeof key.secret === 'string' ? key.secret : JSON.stringify(key.secret),
-            pin,
-            key.iv
-          )
-          const decryptedSecret = JSON.parse(decryptedSecretString) as Secret
-          key.secret = decryptedSecret
+          if (typeof key.secret === 'string') {
+            // Decrypt the secret
+            const decryptedSecretString = await aesDecrypt(
+              key.secret,
+              pin,
+              key.iv
+            )
+            const decryptedSecret = JSON.parse(decryptedSecretString) as Secret
+            console.log('decryptedSecret', decryptedSecret)
+            key.secret = decryptedSecret
+            
+            // Extract fingerprint and derivation path from decrypted secret
+            // Use the same pattern as account settings: prefer top-level, fallback to secret
+            key.fingerprint = key.fingerprint || decryptedSecret.fingerprint || ''
+            key.derivationPath = key.derivationPath || decryptedSecret.derivationPath || ''
+          } else {
+            // Secret is already decrypted, ensure fingerprint and derivation path are set
+            const secret = key.secret as Secret
+            key.fingerprint = key.fingerprint || secret.fingerprint || ''
+            key.derivationPath = key.derivationPath || secret.derivationPath || ''
+          }
         }
 
         const walletData = !isImportAddress
           ? await getWalletData(temporaryAccount, network as Network)
           : undefined
 
-        const descriptors = !isImportAddress
-          ? [walletData?.externalDescriptor!, walletData?.internalDescriptor!]
-          : [
-              (typeof temporaryAccount.keys[0].secret === 'object' &&
-                temporaryAccount.keys[0].secret.externalDescriptor!) as string
-            ]
-
         // --- BEGIN: Multisig Key Details Formatting ---
-        let keyDetailsSection = ''
-        if (account.policyType === 'multisig') {
-          keyDetailsSection = temporaryAccount.keys
-            .map((key, idx) => {
-              // Get fingerprint, derivation path, and public key
-              const fingerprint = key.fingerprint || ''
-              const derivation = key.derivationPath || ''
-              let pubkey = ''
-              if (typeof key.secret === 'object') {
-                pubkey = key.secret.extendedPublicKey || key.secret.xpub || ''
-              }
-              return (
-                `Key ${idx + 1}:
-  Fingerprint: ${fingerprint}
-  Derivation:  ${derivation}
-  Public key:  ${pubkey}\n`
-              )
-            })
-            .join('\n')
+        let descriptorString = ''
+        if (!isImportAddress) {
+          // For multisig, reconstruct descriptor with [fingerprint/derivation]xpub for each key
+          // Use walletData.externalDescriptor as template, but replace key section
+          // Example: wsh(sortedmulti(2,[fpr/path]xpub,...))
+          const externalDescriptor = walletData?.externalDescriptor || ''
+          
+          // More flexible regex to match multisig descriptors
+          // Handles: wsh(multi(...)), wsh(sortedmulti(...)), multi(...), sortedmulti(...)
+          const match = externalDescriptor.match(/^(.*?(?:sorted)?multi\(\d+,)(.*)(\).*)$/)
+          
+          if (match) {
+            const prefix = match[1]
+            const suffix = match[3]
+            
+            // Build key section
+            const keySection = temporaryAccount.keys.map((key) => {
+              const secret = key.secret as Secret
+              // Extract fingerprint and derivation path using the established pattern
+              // Check both top-level and decrypted secret, like in SSMultisigKeyControl
+              const fingerprint = key.fingerprint || 
+                (typeof secret === 'object' && 'fingerprint' in secret && secret.fingerprint) || ''
+              const derivationPath = key.derivationPath || 
+                (typeof secret === 'object' && 'derivationPath' in secret && secret.derivationPath) || ''
+              const xpub = (typeof secret === 'object' && (secret.extendedPublicKey || secret.xpub)) || ''
+              
+              
+              // Format: [FINGERPRINT/DERIVATION_PATH]XPUB
+              // Remove leading 'm' or 'M' from derivationPath if present
+              const cleanPath = derivationPath.replace(/^m\/?/i, '')
+              const keyPart = `[${fingerprint}/${cleanPath}]${xpub}`
+              return keyPart
+            }).join(',')
+            descriptorString = `${prefix}${keySection}${suffix}`
+          } else {
+            // fallback to original descriptor
+            console.log('No match found, using original descriptor')
+            descriptorString = externalDescriptor
+          }
+        } else {
+          // For importAddress, fallback to single key descriptor
+          descriptorString = (typeof temporaryAccount.keys[0].secret === 'object' && temporaryAccount.keys[0].secret.externalDescriptor!) as string
         }
         // --- END: Multisig Key Details Formatting ---
 
         // Compose export content
-        let exportString = ''
-        if (keyDetailsSection) {
-          exportString += keyDetailsSection + '\n'
-        }
-        exportString += 'Descriptor(s):\n' + descriptors.join('\n')
-
+        let exportString = descriptorString
         setExportContent(exportString)
       } catch {
         // TODO
