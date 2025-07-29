@@ -164,6 +164,16 @@ function SSMultisigKeyControl({
 
   if (typeof keyDetails?.secret === 'string' && !isSettingsMode) return null
 
+  // Extract fingerprint and extendedPublicKey for display, with null checks
+  const fingerprint = keyDetails?.fingerprint || (typeof keyDetails?.secret === 'object' && 'fingerprint' in keyDetails.secret && keyDetails.secret.fingerprint) || ''
+  const extendedPublicKey = (typeof keyDetails?.secret === 'object' && (keyDetails.secret.extendedPublicKey || keyDetails.secret.xpub)) || ''
+
+  // Format public key for display: first 7, last 4 chars
+  let formattedPubKey = extendedPublicKey
+  if (extendedPublicKey && extendedPublicKey.length > 12) {
+    formattedPubKey = `${extendedPublicKey.slice(0, 7)}...${extendedPublicKey.slice(-4)}`
+  }
+
   return (
     <View
       style={[
@@ -201,29 +211,16 @@ function SSMultisigKeyControl({
             </SSVStack>
           </SSHStack>
           <SSVStack gap="none" style={{ alignItems: 'flex-end' }}>
-            <SSText color={keyDetails?.fingerprint ? 'white' : 'muted'}>
-              {keyDetails?.fingerprint ?? t('account.fingerprint')}
+            <SSText color={fingerprint ? 'white' : 'muted'}>
+              {fingerprint || t('account.fingerprint')}
             </SSText>
             <SSText
-              color={
-                keyDetails &&
-                typeof keyDetails.secret === 'object' &&
-                (keyDetails.secret?.xpub ||
-                  keyDetails.secret?.extendedPublicKey)
-                  ? 'white'
-                  : 'muted'
-              }
+              color={extendedPublicKey ? 'white' : 'muted'}
+              selectable
+              numberOfLines={1}
+              ellipsizeMode="middle"
             >
-              {keyDetails &&
-              typeof keyDetails.secret === 'object' &&
-              (keyDetails.secret?.xpub || keyDetails.secret?.extendedPublicKey)
-                ? formatAddress(
-                    (keyDetails.secret.xpub ||
-                      keyDetails.secret.extendedPublicKey) ??
-                      '',
-                    6
-                  )
-                : t('account.seed.publicKey')}
+              {formattedPubKey || t('account.seed.publicKey')}
             </SSText>
           </SSVStack>
         </SSHStack>

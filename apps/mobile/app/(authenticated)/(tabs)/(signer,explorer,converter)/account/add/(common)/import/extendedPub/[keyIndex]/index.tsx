@@ -22,6 +22,7 @@ export default function ImportExtendedPub() {
   const [xpub, setXpub] = useState('')
   const [fingerprint, setFingerprint] = useState('')
   const [alarm, setAlarm] = useState('')
+  const [derivationPath, setDerivationPath] = useState('')
 
   const [
     setKey,
@@ -29,7 +30,8 @@ export default function ImportExtendedPub() {
     updateKeyFingerprint,
     updateKeySecret,
     setExtendedPublicKey,
-    clearKeyState
+    clearKeyState,
+    setKeyDerivationPath
   ] = useAccountBuilderStore(
     useShallow((state) => [
       state.setKey,
@@ -37,7 +39,8 @@ export default function ImportExtendedPub() {
       state.updateKeyFingerprint,
       state.updateKeySecret,
       state.setExtendedPublicKey,
-      state.clearKeyState
+      state.clearKeyState,
+      state.setKeyDerivationPath
     ])
   )
 
@@ -88,11 +91,17 @@ export default function ImportExtendedPub() {
       setLoading(false)
       return
     }
-    // Store xpub and fingerprint for this key index
+    if (!derivationPath.trim()) {
+      setAlarm('Derivation path required')
+      setLoading(false)
+      return
+    }
+    // Store xpub, fingerprint, and derivation path for this key index
     setKey(Number(keyIndex))
     updateKeyFingerprint(Number(keyIndex), fingerprint)
     updateKeySecret(Number(keyIndex), { extendedPublicKey: xpub })
     setExtendedPublicKey(xpub)
+    setKeyDerivationPath(Number(keyIndex), derivationPath)
     clearKeyState()
     setLoading(false)
     router.dismiss(1)
@@ -143,6 +152,20 @@ export default function ImportExtendedPub() {
               label={t('common.paste')}
               onPress={handleOnPressPasteFingerprint}
             />
+            <SSFormLayout.Item>
+              <SSFormLayout.Label label="Derivation Path" />
+              <SSTextInput
+                align="left"
+                style={{
+                  height: 60,
+                  verticalAlign: 'top',
+                  paddingVertical: 16
+                }}
+                value={derivationPath}
+                onChangeText={setDerivationPath}
+                placeholder="e.g. m/48'/0'/0'/2'"
+              />
+            </SSFormLayout.Item>
           </SSFormLayout>
           <SSButton label={t('camera.scanQRCode')} onPress={() => {}} />
           <SSButton label={t('watchonly.read.nfc')} disabled />

@@ -117,21 +117,6 @@ export default function MultiSigKeySettings() {
     setEntropyModalVisible(false)
   }
 
-  function getImportExtendedLabel() {
-    switch (scriptVersion) {
-      case 'P2PKH':
-        return t('account.import.xpub')
-      case 'P2SH-P2WPKH':
-        return t('account.import.ypub')
-      case 'P2WPKH':
-        return t('account.import.zpub')
-      case 'P2TR':
-        return t('account.import.vpub')
-      default:
-        return t('account.import.xpub')
-    }
-  }
-
   if (!name) return <Redirect href="/" />
 
   return (
@@ -183,13 +168,6 @@ export default function MultiSigKeySettings() {
             variant="secondary"
             loading={loading}
             onPress={() => handleOnPress('generateMnemonic')}
-          />
-          <SSButton
-            label={getImportExtendedLabel()}
-            variant="secondary"
-            onPress={() =>
-              router.navigate(`/account/add/(common)/import/extended/${index}`)
-            }
           />
           <SSButton
             label={t('common.cancel')}

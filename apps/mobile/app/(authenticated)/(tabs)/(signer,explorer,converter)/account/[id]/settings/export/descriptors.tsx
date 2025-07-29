@@ -67,7 +67,37 @@ export default function ExportDescriptors() {
                 temporaryAccount.keys[0].secret.externalDescriptor!) as string
             ]
 
-        setExportContent(descriptors.join('\n'))
+        // --- BEGIN: Multisig Key Details Formatting ---
+        let keyDetailsSection = ''
+        if (account.policyType === 'multisig') {
+          keyDetailsSection = temporaryAccount.keys
+            .map((key, idx) => {
+              // Get fingerprint, derivation path, and public key
+              const fingerprint = key.fingerprint || ''
+              const derivation = key.derivationPath || ''
+              let pubkey = ''
+              if (typeof key.secret === 'object') {
+                pubkey = key.secret.extendedPublicKey || key.secret.xpub || ''
+              }
+              return (
+                `Key ${idx + 1}:
+  Fingerprint: ${fingerprint}
+  Derivation:  ${derivation}
+  Public key:  ${pubkey}\n`
+              )
+            })
+            .join('\n')
+        }
+        // --- END: Multisig Key Details Formatting ---
+
+        // Compose export content
+        let exportString = ''
+        if (keyDetailsSection) {
+          exportString += keyDetailsSection + '\n'
+        }
+        exportString += 'Descriptor(s):\n' + descriptors.join('\n')
+
+        setExportContent(exportString)
       } catch {
         // TODO
       }
@@ -128,6 +158,10 @@ export default function ExportDescriptors() {
 
     const date = new Date().toISOString().slice(0, -5)
     const title = `Output descriptor for ${account.name}`
+
+    // Split exportContent for PDF formatting
+    const [keyDetailsSection, ...descriptorSectionArr] = exportContent.split('Descriptor(s):')
+    const descriptorSection = descriptorSectionArr.join('Descriptor(s):')
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -241,6 +275,36 @@ export default function ExportDescriptors() {
               font-size: 12px;
               color: #666;
             }
+            .key-details {
+              font-family: 'Courier New', monospace;
+              font-size: 12px;
+              background-color: #f8f8f8;
+              padding: 15px;
+              border: 1px solid #ddd;
+              margin-bottom: 20px;
+              white-space: pre;
+            }
+            .descriptor-section {
+              margin-top: 20px;
+              page-break-inside: avoid;
+            }
+            .descriptor-title {
+              font-size: 18px;
+              font-weight: bold;
+              margin-bottom: 10px;
+              color: #333;
+            }
+            .descriptor-text {
+              font-family: 'Courier New', monospace;
+              font-size: 11px;
+              word-break: break-all;
+              background-color: #f8f8f8;
+              padding: 20px;
+              border: 1px solid #ddd;
+              border-left: 4px solid #007ACC;
+              margin: 15px 0;
+              line-height: 1.6;
+            }
           </style>
         </head>
         <body>
@@ -262,9 +326,10 @@ export default function ExportDescriptors() {
               : ''
           }
           
+          <div class="key-details">${keyDetailsSection.trim()}</div>
           <div class="descriptor-section">
-            <div class="descriptor-title">Bitcoin Descriptor:</div>
-            <div class="descriptor-text">${exportContent}</div>
+            <div class="descriptor-title">Descriptor(s):</div>
+            <div class="descriptor-text">${descriptorSection.trim()}</div>
           </div>
           
           <div class="info-section">

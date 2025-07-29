@@ -35,7 +35,8 @@ export default function ImportDescriptor() {
     setKeyDerivationPath,
     setExtendedPublicKey,
     setInternalExtendedPublicKey,
-    clearKeyState
+    clearKeyState,
+    updateKeySecret
   ] = useAccountBuilderStore(
     useShallow((state) => [
       state.setKey,
@@ -44,7 +45,8 @@ export default function ImportDescriptor() {
       state.setKeyDerivationPath,
       state.setExtendedPublicKey,
       state.setInternalExtendedPublicKey,
-      state.clearKeyState
+      state.clearKeyState,
+      state.updateKeySecret
     ])
   )
 
@@ -74,6 +76,11 @@ export default function ImportDescriptor() {
       setKey(Number(keyIndex))
       updateKeyFingerprint(Number(keyIndex), fingerprint)
       setKeyDerivationPath(Number(keyIndex), derivationPath)
+      updateKeySecret(Number(keyIndex), {
+        extendedPublicKey: extendedKey,
+        fingerprint,
+        derivationPath
+      })
       clearKeyState()
 
       // Process internal descriptor if provided

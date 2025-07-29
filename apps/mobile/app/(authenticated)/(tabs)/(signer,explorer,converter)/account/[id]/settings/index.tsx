@@ -53,6 +53,7 @@ export default function AccountSettings() {
     account?.name || ''
   )
   const [localMnemonic, setLocalMnemonic] = useState('')
+  const [decryptedKeys, setDecryptedKeys] = useState<Key[]>([])
 
   const [scriptVersionModalVisible, setScriptVersionModalVisible] =
     useState(false)
@@ -111,20 +112,32 @@ export default function AccountSettings() {
   }
 
   useEffect(() => {
-    async function getMnemonic() {
+    async function decryptAllKeys() {
+      if (!account) return
       const pin = await getItem(PIN_KEY)
-      if (!account || !pin) return
-
-      const iv = account.keys[0].iv
-      const encryptedSecret = account.keys[0].secret as string
-
-      const accountSecretString = await aesDecrypt(encryptedSecret, pin, iv)
-      const accountSecret = JSON.parse(accountSecretString) as Secret
-
-      setLocalMnemonic(accountSecret.mnemonic || '')
+      if (!pin) return
+      const keys: Key[] = []
+      for (const key of account.keys) {
+        if (typeof key.secret === 'string') {
+          try {
+            const decryptedSecretString = await aesDecrypt(key.secret, pin, key.iv)
+            const decryptedSecret = JSON.parse(decryptedSecretString)
+            // Ensure fingerprint is set at the top level if present in secret
+            const fingerprint = key.fingerprint || (decryptedSecret.fingerprint || '')
+            keys.push({ ...key, secret: decryptedSecret, fingerprint })
+          } catch {
+            keys.push(key)
+          }
+        } else {
+          // Also ensure fingerprint is set if secret is already decrypted
+          const fingerprint = key.fingerprint || (typeof key.secret === 'object' && 'fingerprint' in key.secret && key.secret.fingerprint) || ''
+          keys.push({ ...key, fingerprint })
+        }
+      }
+      setDecryptedKeys(keys)
     }
-    getMnemonic()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    decryptAllKeys()
+  }, [account])
 
   if (!currentAccountId || !account || !scriptVersion)
     return <Redirect href="/" />
@@ -256,6 +269,7 @@ export default function AccountSettings() {
 
       {account.policyType === 'multisig' && (
         <>
+        {console.log('decryptedKeys:', decryptedKeys)}
           <SSVStack gap="md" style={styles.multiSigContainer}>
             <SSMultisigCountSelector
               maxCount={12}
@@ -266,12 +280,12 @@ export default function AccountSettings() {
             <SSText center>{t('account.keys.management')}</SSText>
           </SSVStack>
           <SSVStack gap="none">
-            {account.keys.map((key, index) => (
+            {decryptedKeys.map((key, index) => (
               <SSMultisigKeyControl
                 key={index}
                 isBlackBackground={index % 2 === 0}
                 index={index}
-                keyCount={account.keys.length}
+                keyCount={decryptedKeys.length}
                 keyDetails={key}
                 isSettingsMode
                 accountId={currentAccountId}

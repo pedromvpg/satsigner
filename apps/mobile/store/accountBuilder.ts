@@ -172,12 +172,23 @@ const useAccountBuilderStore = create<
         ...(passphrase && { passphrase }),
         ...(externalDescriptor && { externalDescriptor }),
         ...(internalDescriptor && { internalDescriptor }),
-        ...(extendedPublicKey && { extendedPublicKey }),
-        ...(internalExtendedPublicKey && { internalExtendedPublicKey })
+        ...(extendedPublicKey && { extendedPublicKey })
       },
       iv: uuid.v4().replace(/-/g, ''),
       fingerprint,
-      scriptVersion
+      scriptVersion,
+      derivationPath: get().keys[index]?.derivationPath || undefined,
+      // Ensure extendedPublicKey is also set at the top level if present in secret
+      ...(extendedPublicKey ? { extendedPublicKey } : {})
+    }
+
+    // Warn if any required field is missing
+    if (!key.scriptVersion || !key.fingerprint || !key.derivationPath || !extendedPublicKey) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `Key at index ${index} is missing required info: ` +
+          `scriptVersion=${key.scriptVersion}, fingerprint=${key.fingerprint}, derivationPath=${key.derivationPath}, extendedPublicKey=${extendedPublicKey}`
+      )
     }
 
     set(
