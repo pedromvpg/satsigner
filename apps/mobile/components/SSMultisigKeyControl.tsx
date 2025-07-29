@@ -13,11 +13,14 @@ import SSFormLayout from '@/layouts/SSFormLayout'
 import SSHStack from '@/layouts/SSHStack'
 import SSVStack from '@/layouts/SSVStack'
 import { t } from '@/locales'
+import { PIN_KEY } from '@/config/auth'
+import { getItem } from '@/storage/encrypted'
 import { useAccountBuilderStore } from '@/store/accountBuilder'
 import { useAccountsStore } from '@/store/accounts'
 import { useBlockchainStore } from '@/store/blockchain'
-import { type Key } from '@/types/models/Account'
+import { type Key, type Secret } from '@/types/models/Account'
 import { formatAddress } from '@/utils/format'
+import { aesDecrypt, aesEncrypt } from '@/utils/crypto'
 
 type SSMultisigKeyControlProps = {
   isBlackBackground: boolean
@@ -56,6 +59,7 @@ function SSMultisigKeyControl({
   )
   const network = useBlockchainStore((state) => state.selectedNetwork)
   const updateKeyName = useAccountsStore((state) => state.updateKeyName)
+  const updateAccount = useAccountsStore((state) => state.updateAccount)
 
   const [isExpanded, setIsExpanded] = useState(false)
   const [localKeyName, setLocalKeyName] = useState(keyDetails?.name || '')
@@ -132,8 +136,7 @@ function SSMultisigKeyControl({
     // Handle actions for completed keys
     switch (action) {
       case 'dropSeed':
-        // TODO: Implement drop seed functionality
-        console.log('Drop seed and keep xpub for key', index)
+        handleDropSeed()
         break
       case 'shareXpub':
         // TODO: Implement share xpub functionality
@@ -143,6 +146,67 @@ function SSMultisigKeyControl({
         // TODO: Implement share descriptor functionality
         console.log('Share descriptor for key', index)
         break
+    }
+  }
+
+  async function handleDropSeed() {
+    if (!keyDetails || !accountId) return
+
+    try {
+      // Get the current account
+      const accounts = useAccountsStore.getState().accounts
+      const account = accounts.find((acc) => acc.id === accountId)
+      if (!account) return
+
+      const pin = await getItem(PIN_KEY)
+      if (!pin) return
+
+      // Decrypt the key's secret
+      let decryptedSecret: Secret
+      if (typeof keyDetails.secret === 'string') {
+        const decryptedSecretString = await aesDecrypt(
+          keyDetails.secret,
+          pin,
+          keyDetails.iv
+        )
+        decryptedSecret = JSON.parse(decryptedSecretString) as Secret
+      } else {
+        decryptedSecret = keyDetails.secret as Secret
+      }
+
+      console.log('decryptedSecret', decryptedSecret)
+
+      // Remove mnemonic and passphrase, keep only xpub and metadata
+      const cleanedSecret: Secret = {
+        extendedPublicKey: decryptedSecret.extendedPublicKey,
+        xpub: decryptedSecret.xpub,
+        fingerprint: decryptedSecret.fingerprint,
+        derivationPath: decryptedSecret.derivationPath,
+        externalDescriptor: decryptedSecret.externalDescriptor,
+        internalDescriptor: decryptedSecret.internalDescriptor
+      }
+
+      // Re-encrypt the cleaned secret
+      const stringifiedSecret = JSON.stringify(cleanedSecret)
+      const encryptedSecret = await aesEncrypt(
+        stringifiedSecret,
+        pin,
+        keyDetails.iv
+      )
+
+      // Update the account with the new encrypted secret
+      const updatedAccount = { ...account }
+      updatedAccount.keys[index] = {
+        ...keyDetails,
+        secret: encryptedSecret
+      }
+
+      // Update the account in the store
+      await updateAccount(updatedAccount)
+
+      console.log('Successfully dropped seed for key', index)
+    } catch (error) {
+      console.error('Error dropping seed:', error)
     }
   }
 
@@ -165,8 +229,16 @@ function SSMultisigKeyControl({
   if (typeof keyDetails?.secret === 'string' && !isSettingsMode) return null
 
   // Extract fingerprint and extendedPublicKey for display, with null checks
-  const fingerprint = keyDetails?.fingerprint || (typeof keyDetails?.secret === 'object' && 'fingerprint' in keyDetails.secret && keyDetails.secret.fingerprint) || ''
-  const extendedPublicKey = (typeof keyDetails?.secret === 'object' && (keyDetails.secret.extendedPublicKey || keyDetails.secret.xpub)) || ''
+  const fingerprint =
+    keyDetails?.fingerprint ||
+    (typeof keyDetails?.secret === 'object' &&
+      'fingerprint' in keyDetails.secret &&
+      keyDetails.secret.fingerprint) ||
+    ''
+  const extendedPublicKey =
+    (typeof keyDetails?.secret === 'object' &&
+      (keyDetails.secret.extendedPublicKey || keyDetails.secret.xpub)) ||
+    ''
 
   // Format public key for display: first 7, last 4 chars
   let formattedPubKey = extendedPublicKey
