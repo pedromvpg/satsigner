@@ -7,6 +7,7 @@ import { ScrollView } from 'react-native'
 import { useShallow } from 'zustand/react/shallow'
 
 import { extractExtendedKeyFromDescriptor, parseDescriptor } from '@/api/bdk'
+import { validateDescriptor } from '@/utils/validation'
 import SSButton from '@/components/SSButton'
 import SSText from '@/components/SSText'
 import SSTextInput from '@/components/SSTextInput'
@@ -36,7 +37,8 @@ export default function ImportDescriptor() {
     setExtendedPublicKey,
     setInternalExtendedPublicKey,
     clearKeyState,
-    updateKeySecret
+    updateKeySecret,
+    setFingerprint
   ] = useAccountBuilderStore(
     useShallow((state) => [
       state.setKey,
@@ -46,7 +48,8 @@ export default function ImportDescriptor() {
       state.setExtendedPublicKey,
       state.setInternalExtendedPublicKey,
       state.clearKeyState,
-      state.updateKeySecret
+      state.updateKeySecret,
+      state.setFingerprint
     ])
   )
 
@@ -64,6 +67,11 @@ export default function ImportDescriptor() {
     setLoading(true)
     setAlarm('')
     try {
+      if (!validateDescriptor(localDescriptor)) {
+        setAlarm(t('watchonly.importDescriptor.invalid'))
+        setLoading(false)
+        return
+      }
       const descriptor = await new Descriptor().create(
         localDescriptor,
         network as Network
@@ -73,6 +81,8 @@ export default function ImportDescriptor() {
 
       setExternalDescriptor(localDescriptor)
       setExtendedPublicKey(extendedKey)
+      setFingerprint(fingerprint)
+      setKeyDerivationPath(Number(keyIndex), derivationPath)
       setKey(Number(keyIndex))
       updateKeyFingerprint(Number(keyIndex), fingerprint)
       setKeyDerivationPath(Number(keyIndex), derivationPath)
@@ -97,7 +107,7 @@ export default function ImportDescriptor() {
       setLoading(false)
       router.dismiss(1)
     } catch (e) {
-      setAlarm(t('watchonly.importDescriptor.invalid'))
+      setAlarm(e instanceof Error ? e.message : t('watchonly.importDescriptor.invalid'))
       setLoading(false)
     }
   }

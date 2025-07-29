@@ -116,9 +116,11 @@ async function getWalletData(account: Account, network: Network) {
         })
         .filter((x): x is string => x !== null)
 
-      const multisigDescriptorString = `wsh(multi(${
-        account.keysRequired
-      },${extendedPublicKeys.join(',')}))`
+      if (extendedPublicKeys.length < account.keysRequired) {
+        throw new Error('Not enough valid keys for multisig')
+      }
+
+      const multisigDescriptorString = `wsh(multi(${account.keysRequired},${extendedPublicKeys.join(',')}))`
       const multisigDescriptor = await new Descriptor().create(
         multisigDescriptorString,
         network

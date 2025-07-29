@@ -100,7 +100,7 @@ export default function AuthenticatedLayout() {
 
           for (const key of temporaryAccount.keys) {
             const decryptedSecretString = await aesDecrypt(
-              key.secret as string,
+              typeof key.secret === 'string' ? key.secret : JSON.stringify(key.secret),
               pin,
               key.iv
             )
