@@ -56,18 +56,20 @@ export default function ExportDescriptors() {
               key.iv
             )
             const decryptedSecret = JSON.parse(decryptedSecretString) as Secret
-            console.log('decryptedSecret', decryptedSecret)
             key.secret = decryptedSecret
-            
+
             // Extract fingerprint and derivation path from decrypted secret
             // Use the same pattern as account settings: prefer top-level, fallback to secret
-            key.fingerprint = key.fingerprint || decryptedSecret.fingerprint || ''
-            key.derivationPath = key.derivationPath || decryptedSecret.derivationPath || ''
+            key.fingerprint =
+              key.fingerprint || decryptedSecret.fingerprint || ''
+            key.derivationPath =
+              key.derivationPath || decryptedSecret.derivationPath || ''
           } else {
             // Secret is already decrypted, ensure fingerprint and derivation path are set
             const secret = key.secret as Secret
             key.fingerprint = key.fingerprint || secret.fingerprint || ''
-            key.derivationPath = key.derivationPath || secret.derivationPath || ''
+            key.derivationPath =
+              key.derivationPath || secret.derivationPath || ''
           }
         }
 
@@ -82,47 +84,62 @@ export default function ExportDescriptors() {
           // Use walletData.externalDescriptor as template, but replace key section
           // Example: wsh(sortedmulti(2,[fpr/path]xpub,...))
           const externalDescriptor = walletData?.externalDescriptor || ''
-          
+
           // More flexible regex to match multisig descriptors
           // Handles: wsh(multi(...)), wsh(sortedmulti(...)), multi(...), sortedmulti(...)
-          const match = externalDescriptor.match(/^(.*?(?:sorted)?multi\(\d+,)(.*)(\).*)$/)
-          
+          const match = externalDescriptor.match(
+            /^(.*?(?:sorted)?multi\(\d+,)(.*)(\).*)$/
+          )
+
           if (match) {
             const prefix = match[1]
             const suffix = match[3]
-            
+
             // Build key section
-            const keySection = temporaryAccount.keys.map((key) => {
-              const secret = key.secret as Secret
-              // Extract fingerprint and derivation path using the established pattern
-              // Check both top-level and decrypted secret, like in SSMultisigKeyControl
-              const fingerprint = key.fingerprint || 
-                (typeof secret === 'object' && 'fingerprint' in secret && secret.fingerprint) || ''
-              const derivationPath = key.derivationPath || 
-                (typeof secret === 'object' && 'derivationPath' in secret && secret.derivationPath) || ''
-              const xpub = (typeof secret === 'object' && (secret.extendedPublicKey || secret.xpub)) || ''
-              
-              
-              // Format: [FINGERPRINT/DERIVATION_PATH]XPUB
-              // Remove leading 'm' or 'M' from derivationPath if present
-              const cleanPath = derivationPath.replace(/^m\/?/i, '')
-              const keyPart = `[${fingerprint}/${cleanPath}]${xpub}`
-              return keyPart
-            }).join(',')
+            const keySection = temporaryAccount.keys
+              .map((key) => {
+                const secret = key.secret as Secret
+                // Extract fingerprint and derivation path using the established pattern
+                // Check both top-level and decrypted secret, like in SSMultisigKeyControl
+                const fingerprint =
+                  key.fingerprint ||
+                  (typeof secret === 'object' &&
+                    'fingerprint' in secret &&
+                    secret.fingerprint) ||
+                  ''
+                const derivationPath =
+                  key.derivationPath ||
+                  (typeof secret === 'object' &&
+                    'derivationPath' in secret &&
+                    secret.derivationPath) ||
+                  ''
+                const xpub =
+                  (typeof secret === 'object' &&
+                    (secret.extendedPublicKey || secret.xpub)) ||
+                  ''
+
+                // Format: [FINGERPRINT/DERIVATION_PATH]XPUB
+                // Remove leading 'm' or 'M' from derivationPath if present
+                const cleanPath = derivationPath.replace(/^m\/?/i, '')
+                const keyPart = `[${fingerprint}/${cleanPath}]${xpub}`
+                return keyPart
+              })
+              .join(',')
             descriptorString = `${prefix}${keySection}${suffix}`
           } else {
             // fallback to original descriptor
-            console.log('No match found, using original descriptor')
             descriptorString = externalDescriptor
           }
         } else {
           // For importAddress, fallback to single key descriptor
-          descriptorString = (typeof temporaryAccount.keys[0].secret === 'object' && temporaryAccount.keys[0].secret.externalDescriptor!) as string
+          descriptorString = (typeof temporaryAccount.keys[0].secret ===
+            'object' &&
+            temporaryAccount.keys[0].secret.externalDescriptor!) as string
         }
         // --- END: Multisig Key Details Formatting ---
 
         // Compose export content
-        let exportString = descriptorString
+        const exportString = descriptorString
         setExportContent(exportString)
       } catch {
         // TODO
@@ -135,11 +152,10 @@ export default function ExportDescriptors() {
     if (!account) return
     const date = new Date().toISOString().slice(0, -5)
     const ext = 'txt'
-    const filename = `${t(
-      'export.file.name.descriptors'
-    )}_${accountId}_${date}.${ext}`
     shareFile({
-      filename,
+      filename: `${t(
+        'export.file.name.descriptors'
+      )}_${accountId}_${date}.${ext}`,
       fileContent: exportContent,
       dialogTitle: t('export.file.save'),
       mimeType: `text/plain`
@@ -152,8 +168,8 @@ export default function ExportDescriptors() {
     try {
       // Generate PDF with QR code using a different approach
       generatePDF()
-    } catch (error) {
-      console.error('Error generating PDF:', error)
+    } catch {
+      // Handle error silently
     }
   }
 
@@ -172,8 +188,7 @@ export default function ExportDescriptors() {
       }
 
       await createPDFWithQR(qrDataURL)
-    } catch (error) {
-      console.error('Error generating PDF:', error)
+    } catch {
       // Fallback without QR code
       await createPDFWithQR('')
     }
@@ -181,12 +196,11 @@ export default function ExportDescriptors() {
 
   async function createPDFWithQR(qrDataURL: string) {
     if (!account) return
-
-    const date = new Date().toISOString().slice(0, -5)
     const title = `Output descriptor for ${account.name}`
 
     // Split exportContent for PDF formatting
-    const [keyDetailsSection, ...descriptorSectionArr] = exportContent.split('Descriptor(s):')
+    const [keyDetailsSection, ...descriptorSectionArr] =
+      exportContent.split('Descriptor(s):')
     const descriptorSection = descriptorSectionArr.join('Descriptor(s):')
 
     const htmlContent = `
@@ -383,10 +397,6 @@ export default function ExportDescriptors() {
         base64: false
       })
 
-      const filename = `${t(
-        'export.file.name.descriptors'
-      )}_${accountId}_${date}.pdf`
-
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, {
           mimeType: 'application/pdf',
@@ -394,8 +404,8 @@ export default function ExportDescriptors() {
           UTI: 'com.adobe.pdf'
         })
       }
-    } catch (error) {
-      console.error('Error creating PDF:', error)
+    } catch {
+      // Handle error silently
     }
   }
 

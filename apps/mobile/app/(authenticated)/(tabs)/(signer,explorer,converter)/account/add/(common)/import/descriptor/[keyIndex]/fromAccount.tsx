@@ -65,7 +65,9 @@ function ImportDescriptorFromAccount() {
     const encryptedSecret = chosenAccount.keys[0].secret as string
 
     const accountSecretString = await aesDecrypt(
-      typeof encryptedSecret === 'string' ? encryptedSecret : JSON.stringify(encryptedSecret),
+      typeof encryptedSecret === 'string'
+        ? encryptedSecret
+        : JSON.stringify(encryptedSecret),
       pin,
       iv
     )

@@ -1,13 +1,11 @@
-import { type Network } from 'bdk-rn/lib/lib/enums'
 import * as Clipboard from 'expo-clipboard'
 import { Redirect, router, Stack, useLocalSearchParams } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { ScrollView, View } from 'react-native'
-import { captureRef } from 'react-native-view-shot'
+import { toast } from 'sonner-native'
 
 import { SSIconEyeOn } from '@/components/icons'
 import SSButton from '@/components/SSButton'
-import SSClipboardCopy from '@/components/SSClipboardCopy'
 import SSQRCode from '@/components/SSQRCode'
 import SSText from '@/components/SSText'
 import { PIN_KEY } from '@/config/auth'
@@ -16,12 +14,10 @@ import SSVStack from '@/layouts/SSVStack'
 import { t } from '@/locales'
 import { getItem } from '@/storage/encrypted'
 import { useAccountsStore } from '@/store/accounts'
-import { useBlockchainStore } from '@/store/blockchain'
 import { Colors } from '@/styles'
-import { type Account, type Secret } from '@/types/models/Account'
+import { type Secret } from '@/types/models/Account'
 import { type AccountSearchParams } from '@/types/navigation/searchParams'
 import { aesDecrypt } from '@/utils/crypto'
-import { toast } from 'sonner-native'
 
 type ShareXpubSearchParams = AccountSearchParams & {
   keyIndex: string
@@ -34,7 +30,6 @@ export default function ShareXpub() {
   const account = useAccountsStore((state) =>
     state.accounts.find((_account) => _account.id === accountId)
   )
-  const network = useBlockchainStore((state) => state.selectedNetwork)
 
   const [xpubContent, setXpubContent] = useState('')
   const [keyName, setKeyName] = useState('')
@@ -76,8 +71,8 @@ export default function ShareXpub() {
 
         setXpubContent(xpub)
         setFingerprint(fp)
-      } catch (error) {
-        console.error('Error getting xpub:', error)
+      } catch {
+        // Handle error silently
       }
     }
     getXpub()
@@ -89,7 +84,7 @@ export default function ShareXpub() {
     try {
       await Clipboard.setStringAsync(xpubContent)
       toast.success(t('common.copiedToClipboard'))
-    } catch (error) {
+    } catch {
       toast.error(t('common.copyFailed'))
     }
   }

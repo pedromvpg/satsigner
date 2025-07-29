@@ -159,8 +159,7 @@ const useAccountBuilderStore = create<
       scriptVersion,
       externalDescriptor,
       internalDescriptor,
-      extendedPublicKey,
-      internalExtendedPublicKey
+      extendedPublicKey
     } = get()
     const key: Key = {
       index,
@@ -183,7 +182,12 @@ const useAccountBuilderStore = create<
     }
 
     // Warn if any required field is missing
-    if (!key.scriptVersion || !key.fingerprint || !key.derivationPath || !extendedPublicKey) {
+    if (
+      !key.scriptVersion ||
+      !key.fingerprint ||
+      !key.derivationPath ||
+      !extendedPublicKey
+    ) {
       // eslint-disable-next-line no-console
       console.warn(
         `Key at index ${index} is missing required info: ` +

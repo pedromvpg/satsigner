@@ -52,7 +52,7 @@ export default function AccountSettings() {
   const [accountName, setAccountName] = useState<Account['name']>(
     account?.name || ''
   )
-  const [localMnemonic, setLocalMnemonic] = useState('')
+  const [decryptedMnemonic, setDecryptedMnemonic] = useState('')
   const [decryptedKeys, setDecryptedKeys] = useState<Key[]>([])
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
@@ -97,6 +97,26 @@ export default function AccountSettings() {
 
     if (isPinValid) {
       setShowPinEntry(false)
+      // Decrypt the mnemonic
+      if (account?.keys[0]) {
+        const key = account.keys[0]
+        if (typeof key.secret === 'string') {
+          try {
+            const decryptedSecretString = await aesDecrypt(
+              key.secret,
+              pinString,
+              key.iv
+            )
+            const decryptedSecret = JSON.parse(decryptedSecretString) as Secret
+            setDecryptedMnemonic(decryptedSecret.mnemonic || '')
+          } catch {
+            setDecryptedMnemonic('')
+          }
+        } else {
+          const secret = key.secret as Secret
+          setDecryptedMnemonic(secret.mnemonic || '')
+        }
+      }
       setMnemonicModalVisible(true)
     }
   }
@@ -239,7 +259,6 @@ export default function AccountSettings() {
               label={t('account.export.config')}
               onPress={() => {
                 // TODO: Implement export config functionality
-                console.log('Export config pressed')
               }}
             />
           </SSHStack>
@@ -453,7 +472,7 @@ export default function AccountSettings() {
         closeButtonVariant="ghost"
         label={t('common.close')}
       >
-        {localMnemonic && (
+        {decryptedMnemonic && (
           <View style={styles.mnemonicModalOuterContainer}>
             <SSVStack gap="lg" style={styles.mnemonicModalContainer}>
               <SSText center uppercase>
@@ -488,7 +507,7 @@ export default function AccountSettings() {
                               (_, rowIndex) => {
                                 const wordIndex =
                                   colIndex * wordsPerColumn + rowIndex
-                                const words = localMnemonic.split(' ')
+                                const words = decryptedMnemonic.split(' ')
                                 const word =
                                   wordIndex < words.length &&
                                   rowIndex < wordsInThisColumn
@@ -530,7 +549,7 @@ export default function AccountSettings() {
               </View>
             </SSVStack>
             <View style={styles.copyButtonContainer}>
-              <SSClipboardCopy text={localMnemonic.replaceAll(',', ' ')}>
+              <SSClipboardCopy text={decryptedMnemonic.replaceAll(',', ' ')}>
                 <SSButton
                   label={t('common.copy')}
                   style={styles.copyButton}
@@ -540,7 +559,9 @@ export default function AccountSettings() {
             </View>
           </View>
         )}
-        {!localMnemonic && <SSText>{t('account.seed.unableToDecrypt')}</SSText>}
+        {!decryptedMnemonic && (
+          <SSText>{t('account.seed.unableToDecrypt')}</SSText>
+        )}
       </SSModal>
       <SSModal visible={showPinEntry} onClose={() => setShowPinEntry(false)}>
         <SSPinEntry

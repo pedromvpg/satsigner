@@ -521,7 +521,9 @@ function useNostrSync() {
 
       for (const key of temporaryAccount.keys) {
         const decryptedSecretString = await aesDecrypt(
-          typeof key.secret === 'string' ? key.secret : JSON.stringify(key.secret),
+          typeof key.secret === 'string'
+            ? key.secret
+            : JSON.stringify(key.secret),
           pin,
           key.iv
         )

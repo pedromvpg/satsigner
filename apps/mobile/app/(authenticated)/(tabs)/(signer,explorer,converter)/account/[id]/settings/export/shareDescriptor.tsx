@@ -1,13 +1,11 @@
-import { type Network } from 'bdk-rn/lib/lib/enums'
 import * as Clipboard from 'expo-clipboard'
 import { Redirect, router, Stack, useLocalSearchParams } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { ScrollView, View } from 'react-native'
-import { captureRef } from 'react-native-view-shot'
+import { toast } from 'sonner-native'
 
 import { SSIconEyeOn } from '@/components/icons'
 import SSButton from '@/components/SSButton'
-import SSClipboardCopy from '@/components/SSClipboardCopy'
 import SSQRCode from '@/components/SSQRCode'
 import SSText from '@/components/SSText'
 import { PIN_KEY } from '@/config/auth'
@@ -16,12 +14,10 @@ import SSVStack from '@/layouts/SSVStack'
 import { t } from '@/locales'
 import { getItem } from '@/storage/encrypted'
 import { useAccountsStore } from '@/store/accounts'
-import { useBlockchainStore } from '@/store/blockchain'
 import { Colors } from '@/styles'
-import { type Account, type Secret } from '@/types/models/Account'
+import { type Secret } from '@/types/models/Account'
 import { type AccountSearchParams } from '@/types/navigation/searchParams'
 import { aesDecrypt } from '@/utils/crypto'
-import { toast } from 'sonner-native'
 
 type ShareDescriptorSearchParams = AccountSearchParams & {
   keyIndex: string
@@ -34,7 +30,6 @@ export default function ShareDescriptor() {
   const account = useAccountsStore((state) =>
     state.accounts.find((_account) => _account.id === accountId)
   )
-  const network = useBlockchainStore((state) => state.selectedNetwork)
 
   const [descriptorContent, setDescriptorContent] = useState('')
   const [keyName, setKeyName] = useState('')
@@ -77,22 +72,6 @@ export default function ShareDescriptor() {
         const xpub =
           decryptedSecret.extendedPublicKey || decryptedSecret.xpub || ''
 
-        console.log('Descriptor construction debug:', {
-          keyIndex: keyIndexNum,
-          keyName: key.name,
-          scriptVersion: key.scriptVersion,
-          fingerprint: fp,
-          derivationPath: path,
-          xpub: xpub ? `${xpub.substring(0, 10)}...` : 'missing',
-          decryptedSecretKeys: Object.keys(decryptedSecret),
-          keyFingerprint: key.fingerprint,
-          keyDerivationPath: key.derivationPath,
-          secretFingerprint: decryptedSecret.fingerprint,
-          secretDerivationPath: decryptedSecret.derivationPath,
-          secretExtendedPublicKey: decryptedSecret.extendedPublicKey,
-          secretXpub: decryptedSecret.xpub
-        })
-
         setFingerprint(fp)
         setDerivationPath(path)
 
@@ -121,14 +100,10 @@ export default function ShareDescriptor() {
               descriptor = `wpkh([${fp}/${cleanPath}]${xpub})`
           }
 
-          console.log('Generated descriptor:', descriptor)
           setDescriptorContent(descriptor)
         } else if (xpub) {
           // Fallback: try to create a basic descriptor without fingerprint/derivation
           // This is not ideal but better than nothing
-          console.warn(
-            'Creating descriptor without fingerprint/derivation path'
-          )
           let descriptor = ''
           switch (key.scriptVersion) {
             case 'P2PKH':
@@ -147,20 +122,10 @@ export default function ShareDescriptor() {
               descriptor = `wpkh(${xpub})`
           }
 
-          console.log('Generated fallback descriptor:', descriptor)
           setDescriptorContent(descriptor)
-        } else {
-          console.error('Missing required data for descriptor construction:', {
-            hasXpub: !!xpub,
-            hasFingerprint: !!fp,
-            hasDerivationPath: !!path,
-            xpubLength: xpub?.length || 0,
-            fingerprintLength: fp?.length || 0,
-            derivationPathLength: path?.length || 0
-          })
         }
-      } catch (error) {
-        console.error('Error getting descriptor:', error)
+      } catch {
+        // Handle error silently
       }
     }
     getDescriptor()
@@ -172,7 +137,7 @@ export default function ShareDescriptor() {
     try {
       await Clipboard.setStringAsync(descriptorContent)
       toast.success(t('common.copiedToClipboard'))
-    } catch (error) {
+    } catch {
       toast.error(t('common.copyFailed'))
     }
   }

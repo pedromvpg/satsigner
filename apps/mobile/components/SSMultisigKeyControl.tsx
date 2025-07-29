@@ -1,25 +1,22 @@
-import { type Network } from 'bdk-rn/lib/lib/enums'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { TouchableOpacity, View } from 'react-native'
 import { useShallow } from 'zustand/react/shallow'
 
-import { generateMnemonic, getFingerprint } from '@/api/bdk'
 import { SSIconAdd, SSIconGreen } from '@/components/icons'
 import SSButton from '@/components/SSButton'
 import SSText from '@/components/SSText'
 import SSTextInput from '@/components/SSTextInput'
+import { PIN_KEY } from '@/config/auth'
 import SSFormLayout from '@/layouts/SSFormLayout'
 import SSHStack from '@/layouts/SSHStack'
 import SSVStack from '@/layouts/SSVStack'
 import { t } from '@/locales'
-import { PIN_KEY } from '@/config/auth'
 import { getItem } from '@/storage/encrypted'
 import { useAccountBuilderStore } from '@/store/accountBuilder'
 import { useAccountsStore } from '@/store/accounts'
 import { useBlockchainStore } from '@/store/blockchain'
 import { type Key, type Secret } from '@/types/models/Account'
-import { formatAddress } from '@/utils/format'
 import { aesDecrypt, aesEncrypt } from '@/utils/crypto'
 
 type SSMultisigKeyControlProps = {
@@ -42,19 +39,9 @@ function SSMultisigKeyControl({
   onRefresh
 }: SSMultisigKeyControlProps) {
   const router = useRouter()
-  const [
-    scriptVersion,
-    setKeyName,
-    setMnemonic,
-    setFingerprint,
-    setCreationType,
-    setNetwork
-  ] = useAccountBuilderStore(
+  const [setKeyName, setCreationType, setNetwork] = useAccountBuilderStore(
     useShallow((state) => [
-      state.scriptVersion,
       state.setKeyName,
-      state.setMnemonic,
-      state.setFingerprint,
       state.setCreationType,
       state.setNetwork
     ])
@@ -65,7 +52,6 @@ function SSMultisigKeyControl({
 
   const [isExpanded, setIsExpanded] = useState(false)
   const [localKeyName, setLocalKeyName] = useState(keyDetails?.name || '')
-  const [loading, setLoading] = useState(false)
 
   function getSourceLabel() {
     if (!keyDetails) {
@@ -97,7 +83,7 @@ function SSMultisigKeyControl({
 
   // Always use the global scriptVersion from the store
   function getImportExtendedLabel() {
-    switch (scriptVersion) {
+    switch (keyDetails?.scriptVersion) {
       case 'P2PKH':
         return t('account.import.xpub')
       case 'P2SH-P2WPKH':
@@ -174,8 +160,6 @@ function SSMultisigKeyControl({
         decryptedSecret = keyDetails.secret as Secret
       }
 
-      console.log('decryptedSecret', decryptedSecret)
-
       // Remove mnemonic and passphrase, keep only xpub and metadata
       const cleanedSecret: Secret = {
         extendedPublicKey: decryptedSecret.extendedPublicKey,
@@ -185,8 +169,6 @@ function SSMultisigKeyControl({
         externalDescriptor: decryptedSecret.externalDescriptor,
         internalDescriptor: decryptedSecret.internalDescriptor
       }
-
-      console.log('cleanedSecret', cleanedSecret)
 
       // Re-encrypt the cleaned secret
       const stringifiedSecret = JSON.stringify(cleanedSecret)
@@ -206,12 +188,9 @@ function SSMultisigKeyControl({
       // Update the account in the store
       await updateAccount(updatedAccount)
 
-      console.log('Updated account keys:', updatedAccount.keys[index])
-
-      console.log('Successfully dropped seed for key', index)
       onRefresh?.()
-    } catch (error) {
-      console.error('Error dropping seed:', error)
+    } catch {
+      // Handle error silently
     }
   }
 
@@ -224,17 +203,6 @@ function SSMultisigKeyControl({
 
   function handleShareDescriptor() {
     if (!accountId) return
-
-    // Debug logging to see what data is available
-    console.log('Share descriptor debug:', {
-      accountId,
-      keyIndex: index,
-      keyDetails,
-      hasSecret: !!keyDetails?.secret,
-      secretType: typeof keyDetails?.secret,
-      fingerprint: keyDetails?.fingerprint,
-      derivationPath: keyDetails?.derivationPath
-    })
 
     router.navigate(
       `/account/${accountId}/settings/export/shareDescriptor?keyIndex=${index}`
@@ -369,7 +337,6 @@ function SSMultisigKeyControl({
                 <SSButton
                   label={t('account.generate.newSecretSeed')}
                   disabled={!localKeyName.trim()}
-                  loading={loading}
                   onPress={() => handleAction('generateMnemonic')}
                 />
                 <SSButton

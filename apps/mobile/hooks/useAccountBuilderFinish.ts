@@ -2,8 +2,7 @@ import { type Network } from 'bdk-rn/lib/lib/enums'
 import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { getWalletData } from '@/api/bdk'
-import { getExtendedPublicKeyFromAccountKey } from '@/api/bdk'
+import { getExtendedPublicKeyFromAccountKey, getWalletData } from '@/api/bdk'
 import { PIN_KEY } from '@/config/auth'
 import { getItem } from '@/storage/encrypted'
 import { useAccountBuilderStore } from '@/store/accountBuilder'
@@ -58,7 +57,10 @@ function useAccountBuilderFinish() {
       if (typeof key.secret === 'object') {
         if (!key.secret.extendedPublicKey && !key.secret.xpub) {
           // Try to extract public key
-          const pubkey = await getExtendedPublicKeyFromAccountKey(key, network as Network)
+          const pubkey = await getExtendedPublicKeyFromAccountKey(
+            key,
+            network as Network
+          )
           if (pubkey) key.secret.extendedPublicKey = pubkey
         }
         // Save fingerprint and derivation path in secret as well

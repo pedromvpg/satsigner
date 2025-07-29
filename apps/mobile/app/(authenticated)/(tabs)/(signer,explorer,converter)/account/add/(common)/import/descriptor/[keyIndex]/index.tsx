@@ -7,7 +7,6 @@ import { ScrollView } from 'react-native'
 import { useShallow } from 'zustand/react/shallow'
 
 import { extractExtendedKeyFromDescriptor, parseDescriptor } from '@/api/bdk'
-import { validateDescriptor } from '@/utils/validation'
 import SSButton from '@/components/SSButton'
 import SSText from '@/components/SSText'
 import SSTextInput from '@/components/SSTextInput'
@@ -18,6 +17,7 @@ import { t } from '@/locales'
 import { useAccountBuilderStore } from '@/store/accountBuilder'
 import { useBlockchainStore } from '@/store/blockchain'
 import { type ImportDescriptorSearchParams } from '@/types/navigation/searchParams'
+import { validateDescriptor } from '@/utils/validation'
 
 export default function ImportDescriptor() {
   const { keyIndex } = useLocalSearchParams<ImportDescriptorSearchParams>()
@@ -107,7 +107,9 @@ export default function ImportDescriptor() {
       setLoading(false)
       router.dismiss(1)
     } catch (e) {
-      setAlarm(e instanceof Error ? e.message : t('watchonly.importDescriptor.invalid'))
+      setAlarm(
+        e instanceof Error ? e.message : t('watchonly.importDescriptor.invalid')
+      )
       setLoading(false)
     }
   }

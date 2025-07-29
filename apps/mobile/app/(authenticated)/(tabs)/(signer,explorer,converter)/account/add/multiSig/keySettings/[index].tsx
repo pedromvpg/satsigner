@@ -26,7 +26,6 @@ export default function MultiSigKeySettings() {
   const [
     name,
     keyCount,
-    scriptVersion,
     setEntropy,
     setMnemonicWordCount,
     setMnemonic,
@@ -37,7 +36,6 @@ export default function MultiSigKeySettings() {
     useShallow((state) => [
       state.name,
       state.keyCount,
-      state.scriptVersion,
       state.setEntropy,
       state.setMnemonicWordCount,
       state.setMnemonic,
