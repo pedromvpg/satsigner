@@ -29,6 +29,7 @@ type SSMultisigKeyControlProps = {
   keyDetails?: Key
   isSettingsMode?: boolean
   accountId?: string
+  onRefresh?: () => void
 }
 
 function SSMultisigKeyControl({
@@ -37,7 +38,8 @@ function SSMultisigKeyControl({
   keyCount,
   keyDetails,
   isSettingsMode = false,
-  accountId
+  accountId,
+  onRefresh
 }: SSMultisigKeyControlProps) {
   const router = useRouter()
   const [
@@ -139,8 +141,7 @@ function SSMultisigKeyControl({
         handleDropSeed()
         break
       case 'shareXpub':
-        // TODO: Implement share xpub functionality
-        console.log('Share xpub for key', index)
+        handleShareXpub()
         break
       case 'shareDescriptor':
         // TODO: Implement share descriptor functionality
@@ -186,6 +187,8 @@ function SSMultisigKeyControl({
         internalDescriptor: decryptedSecret.internalDescriptor
       }
 
+      console.log('cleanedSecret', cleanedSecret)
+
       // Re-encrypt the cleaned secret
       const stringifiedSecret = JSON.stringify(cleanedSecret)
       const encryptedSecret = await aesEncrypt(
@@ -204,10 +207,20 @@ function SSMultisigKeyControl({
       // Update the account in the store
       await updateAccount(updatedAccount)
 
+      console.log('Updated account keys:', updatedAccount.keys[index])
+
       console.log('Successfully dropped seed for key', index)
+      onRefresh?.()
     } catch (error) {
       console.error('Error dropping seed:', error)
     }
+  }
+
+  function handleShareXpub() {
+    if (!accountId) return
+    router.navigate(
+      `/account/${accountId}/settings/export/shareXpub?keyIndex=${index}`
+    )
   }
 
   // Check if key is completed (has extended public key or is in settings mode)

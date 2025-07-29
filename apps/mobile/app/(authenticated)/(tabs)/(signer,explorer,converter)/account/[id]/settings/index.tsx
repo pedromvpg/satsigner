@@ -54,6 +54,7 @@ export default function AccountSettings() {
   )
   const [localMnemonic, setLocalMnemonic] = useState('')
   const [decryptedKeys, setDecryptedKeys] = useState<Key[]>([])
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   const [scriptVersionModalVisible, setScriptVersionModalVisible] =
     useState(false)
@@ -111,6 +112,10 @@ export default function AccountSettings() {
     router.replace('/accountList')
   }
 
+  function triggerRefresh() {
+    setRefreshTrigger((prev) => prev + 1)
+  }
+
   useEffect(() => {
     async function decryptAllKeys() {
       if (!account) return
@@ -121,24 +126,34 @@ export default function AccountSettings() {
       for (const key of account.keys) {
         if (typeof key.secret === 'string') {
           try {
-            const decryptedSecretString = await aesDecrypt(key.secret, pin, key.iv)
+            const decryptedSecretString = await aesDecrypt(
+              key.secret,
+              pin,
+              key.iv
+            )
             const decryptedSecret = JSON.parse(decryptedSecretString)
             // Ensure fingerprint is set at the top level if present in secret
-            const fingerprint = key.fingerprint || (decryptedSecret.fingerprint || '')
+            const fingerprint =
+              key.fingerprint || decryptedSecret.fingerprint || ''
             keys.push({ ...key, secret: decryptedSecret, fingerprint })
           } catch {
             keys.push(key)
           }
         } else {
           // Also ensure fingerprint is set if secret is already decrypted
-          const fingerprint = key.fingerprint || (typeof key.secret === 'object' && 'fingerprint' in key.secret && key.secret.fingerprint) || ''
+          const fingerprint =
+            key.fingerprint ||
+            (typeof key.secret === 'object' &&
+              'fingerprint' in key.secret &&
+              key.secret.fingerprint) ||
+            ''
           keys.push({ ...key, fingerprint })
         }
       }
       setDecryptedKeys(keys)
     }
     decryptAllKeys()
-  }, [account])
+  }, [currentAccountId, refreshTrigger, account])
 
   if (!currentAccountId || !account || !scriptVersion)
     return <Redirect href="/" />
@@ -289,6 +304,7 @@ export default function AccountSettings() {
                 keyDetails={key}
                 isSettingsMode
                 accountId={currentAccountId}
+                onRefresh={triggerRefresh}
               />
             ))}
           </SSVStack>
@@ -311,6 +327,7 @@ export default function AccountSettings() {
                 keyDetails={key}
                 isSettingsMode
                 accountId={currentAccountId}
+                onRefresh={triggerRefresh}
               />
             ))}
           </SSVStack>
