@@ -5,8 +5,6 @@
   "main": "expo-router/entry",
   "scripts": {
     "android": "expo run:android",
-    "prebuild": "expo prebuild",
-    "install-dev-client": "expo install expo-dev-client",
     "format": "cd ../.. && yarn format",
     "format:fix": "cd ../.. && yarn format:fix",
     "ios": "expo run:ios",
