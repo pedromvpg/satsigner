@@ -770,6 +770,30 @@ async function getFingerprint(
   return fingerprint
 }
 
+async function getFingerprintFromExtendedPublicKey(extendedPublicKey: string) {
+  try {
+    // Create a simple descriptor with the extended public key and parse it
+    // This will extract the fingerprint automatically
+    const network = 'signet' // Default network for parsing
+    const descriptorPublicKey = await new DescriptorPublicKey().fromString(
+      extendedPublicKey
+    )
+
+    // Create a descriptor using the extended public key
+    const descriptor = await new Descriptor().newBip84Public(
+      descriptorPublicKey,
+      '', // Empty fingerprint - BDK will extract it from the xpub
+      'External' as any,
+      network as any
+    )
+
+    const { fingerprint } = await parseDescriptor(descriptor)
+    return fingerprint
+  } catch {
+    return ''
+  }
+}
+
 async function getLastUnusedAddressFromWallet(wallet: Wallet) {
   const newAddress = await wallet.getAddress(AddressIndex.New)
 
@@ -838,6 +862,7 @@ export {
   getDescriptor,
   getExtendedPublicKeyFromAccountKey,
   getFingerprint,
+  getFingerprintFromExtendedPublicKey,
   getLastUnusedAddressFromWallet,
   getTransactionInputValues,
   getWalletAddresses,

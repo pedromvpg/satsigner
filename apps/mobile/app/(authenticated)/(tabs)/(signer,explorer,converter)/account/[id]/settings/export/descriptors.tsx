@@ -119,10 +119,16 @@ export default function ExportDescriptors() {
                   ''
 
                 // Format: [FINGERPRINT/DERIVATION_PATH]XPUB
-                // Remove leading 'm' or 'M' from derivationPath if present
-                const cleanPath = derivationPath.replace(/^m\/?/i, '')
-                const keyPart = `[${fingerprint}/${cleanPath}]${xpub}`
-                return keyPart
+                // For importExtendedPub, we don't have derivation path, so just use fingerprint
+                if (key.creationType === 'importExtendedPub') {
+                  const keyPart = `[${fingerprint}]${xpub}`
+                  return keyPart
+                } else {
+                  // Remove leading 'm' or 'M' from derivationPath if present
+                  const cleanPath = derivationPath.replace(/^m\/?/i, '')
+                  const keyPart = `[${fingerprint}/${cleanPath}]${xpub}`
+                  return keyPart
+                }
               })
               .join(',')
             descriptorString = `${prefix}${keySection}${suffix}`

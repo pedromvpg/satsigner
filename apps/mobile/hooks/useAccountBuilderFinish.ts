@@ -51,7 +51,10 @@ function useAccountBuilderFinish() {
       // Use walletData if available, otherwise keep existing
       if (walletData) {
         key.fingerprint = walletData.fingerprint || key.fingerprint
-        key.derivationPath = walletData.derivationPath || key.derivationPath
+        // Only set derivation path for non-importExtendedPub creation types
+        if (key.creationType !== 'importExtendedPub') {
+          key.derivationPath = walletData.derivationPath || key.derivationPath
+        }
       }
       // Always try to set public key if not present
       if (typeof key.secret === 'object') {
@@ -65,7 +68,10 @@ function useAccountBuilderFinish() {
         }
         // Save fingerprint and derivation path in secret as well
         key.secret.fingerprint = key.fingerprint
-        key.secret.derivationPath = key.derivationPath
+        // Only save derivation path for non-importExtendedPub creation types
+        if (key.creationType !== 'importExtendedPub') {
+          key.secret.derivationPath = key.derivationPath
+        }
       }
       // --- END: Save fingerprint, derivation path, and public key ---
 
@@ -81,7 +87,10 @@ function useAccountBuilderFinish() {
 
       if (walletData) {
         updateKeyFingerprint(key.index, walletData.fingerprint)
-        setKeyDerivationPath(key.index, walletData.derivationPath)
+        // Only set derivation path for non-importExtendedPub creation types
+        if (key.creationType !== 'importExtendedPub') {
+          setKeyDerivationPath(key.index, walletData.derivationPath)
+        }
       }
       updateKeySecret(key.index, encryptedSecret)
     }

@@ -101,6 +101,27 @@ export default function ShareDescriptor() {
           }
 
           setDescriptorContent(descriptor)
+        } else if (xpub && fp && key.creationType === 'importExtendedPub') {
+          // For importExtendedPub, we can create a descriptor without derivation path
+          let descriptor = ''
+          switch (key.scriptVersion) {
+            case 'P2PKH':
+              descriptor = `pkh([${fp}]${xpub})`
+              break
+            case 'P2SH-P2WPKH':
+              descriptor = `sh(wpkh([${fp}]${xpub}))`
+              break
+            case 'P2WPKH':
+              descriptor = `wpkh([${fp}]${xpub})`
+              break
+            case 'P2TR':
+              descriptor = `tr([${fp}]${xpub})`
+              break
+            default:
+              descriptor = `wpkh([${fp}]${xpub})`
+          }
+
+          setDescriptorContent(descriptor)
         } else if (xpub) {
           // Fallback: try to create a basic descriptor without fingerprint/derivation
           // This is not ideal but better than nothing
@@ -184,11 +205,13 @@ export default function ShareDescriptor() {
           </SSText>
         )}
 
-        {derivationPath && (
-          <SSText center color="muted" size="md">
-            {t('account.derivationPath')}: {derivationPath}
-          </SSText>
-        )}
+        {derivationPath &&
+          account.keys[parseInt(keyIndex, 10)]?.creationType !==
+            'importExtendedPub' && (
+            <SSText center color="muted" size="md">
+              {t('account.derivationPath')}: {derivationPath}
+            </SSText>
+          )}
 
         {descriptorContent && (
           <View style={{ alignItems: 'center', marginVertical: 20 }}>
