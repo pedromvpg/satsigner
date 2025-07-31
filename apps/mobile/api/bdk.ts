@@ -104,12 +104,18 @@ async function getWalletData(account: Account, network: Network) {
     case 'multisig': {
       const extendedPublicKeys = account.keys
         .map((key) => {
-          if (typeof key.secret === 'object' && key.secret?.extendedPublicKey) {
-            return key.secret.extendedPublicKey
+          if (typeof key.secret === 'object') {
+            if (key.secret.extendedPublicKey) {
+              return key.secret.extendedPublicKey
+            }
           }
           return null
         })
         .filter((x): x is string => x !== null)
+
+      if (extendedPublicKeys.length < account.keysRequired) {
+        throw new Error('Not enough valid keys for multisig')
+      }
 
       const multisigDescriptorString = `wsh(multi(${account.keysRequired},${extendedPublicKeys.join(',')}))`
       const multisigDescriptor = await new Descriptor().create(
@@ -160,13 +166,18 @@ async function getWalletData(account: Account, network: Network) {
           network
         )
 
+        // For imported descriptors, use them as-is without conversion
+        // The conversion should only happen during import, not when loading from storage
+        const externalDescriptorString = await externalDescriptor.asString()
+        const internalDescriptorString = internalDescriptor
+          ? await internalDescriptor.asString()
+          : ''
+
         return {
           fingerprint: parsedDescriptor.fingerprint,
           derivationPath: parsedDescriptor.derivationPath,
-          externalDescriptor: await externalDescriptor.asString(),
-          internalDescriptor: internalDescriptor
-            ? await internalDescriptor.asString()
-            : '',
+          externalDescriptor: externalDescriptorString,
+          internalDescriptor: internalDescriptorString,
           wallet
         }
       } else if (key.creationType === 'importExtendedPub') {
@@ -251,11 +262,16 @@ async function getWalletData(account: Account, network: Network) {
           network
         )
 
+        // For imported extended public keys, use descriptors as-is without conversion
+        // BDK generates them with correct prefixes and checksums
+        const externalDescriptorString = await externalDescriptor.asString()
+        const internalDescriptorString = await internalDescriptor.asString()
+
         return {
           fingerprint: parsedDescriptor.fingerprint,
           derivationPath: parsedDescriptor.derivationPath,
-          externalDescriptor: await externalDescriptor.asString(),
-          internalDescriptor: await internalDescriptor.asString(),
+          externalDescriptor: externalDescriptorString,
+          internalDescriptor: internalDescriptorString,
           wallet
         }
       } else if (key.creationType === 'importAddress') {
@@ -295,12 +311,27 @@ async function getWalletFromMnemonic(
     getWalletFromDescriptor(externalDescriptor, internalDescriptor, network)
   ])
 
+  // Extract and convert the extended key to match the script version
+  const rawExtendedKey =
+    await extractExtendedKeyFromDescriptor(externalDescriptor)
+  const convertedExtendedKey = await convertExtendedKeyPrefix(
+    rawExtendedKey,
+    scriptVersion,
+    network
+  )
+
+  // BDK always uses xpub/tpub in descriptors regardless of script type
+  // Use descriptors as-is without prefix conversion
+  const externalDescriptorString = await externalDescriptor.asString()
+  const internalDescriptorString = await internalDescriptor.asString()
+
   return {
     fingerprint,
     derivationPath,
-    externalDescriptor: await externalDescriptor.asString(),
-    internalDescriptor: await internalDescriptor.asString(),
-    wallet
+    externalDescriptor: externalDescriptorString,
+    internalDescriptor: internalDescriptorString,
+    wallet,
+    extendedPublicKey: convertedExtendedKey
   }
 }
 
@@ -317,6 +348,7 @@ async function getDescriptor(
     parsedMnemonic,
     passphrase
   )
+
   switch (scriptVersion) {
     case 'P2PKH':
       return new Descriptor().newBip44(descriptorSecretKey, kind, network)
@@ -355,8 +387,65 @@ async function getWalletFromDescriptor(
 
 async function extractExtendedKeyFromDescriptor(descriptor: Descriptor) {
   const descriptorString = await descriptor.asString()
-  const match = descriptorString.match(/(tpub|xpub|vpub|zpub)[A-Za-z0-9]+/)
+  const match = descriptorString.match(
+    /(tpub|xpub|vpub|zpub|ypub|upub)[A-Za-z0-9]+/
+  )
   return match ? match[0] : ''
+}
+
+async function convertExtendedKeyPrefix(
+  extendedKey: string,
+  scriptVersion: NonNullable<Key['scriptVersion']>,
+  network: Network
+): Promise<string> {
+  if (!extendedKey) return extendedKey
+
+  // Extract the prefix and the rest of the key
+  const prefix = extendedKey.substring(0, 4)
+  const rest = extendedKey.substring(4)
+
+  // Determine the correct prefix based on script version and network
+  let correctPrefix = prefix
+
+  if (network === 'bitcoin') {
+    switch (scriptVersion) {
+      case 'P2PKH':
+        correctPrefix = 'xpub'
+        break
+      case 'P2SH-P2WPKH':
+        correctPrefix = 'ypub'
+        break
+      case 'P2WPKH':
+        correctPrefix = 'zpub'
+        break
+      case 'P2TR':
+        correctPrefix = 'vpub' // Placeholder - should be inactive
+        break
+    }
+  } else {
+    // testnet/signet
+    switch (scriptVersion) {
+      case 'P2PKH':
+        correctPrefix = 'tpub'
+        break
+      case 'P2SH-P2WPKH':
+        correctPrefix = 'upub'
+        break
+      case 'P2WPKH':
+        correctPrefix = 'vpub'
+        break
+      case 'P2TR':
+        correctPrefix = 'vpub' // Placeholder - should be inactive
+        break
+    }
+  }
+
+  // Only convert if the prefix is different
+  if (prefix !== correctPrefix) {
+    return correctPrefix + rest
+  }
+
+  return extendedKey
 }
 
 async function getExtendedPublicKeyFromAccountKey(key: Key, network: Network) {
@@ -372,7 +461,14 @@ async function getExtendedPublicKeyFromAccountKey(key: Key, network: Network) {
   )
   const extendedKey = await extractExtendedKeyFromDescriptor(externalDescriptor)
 
-  return extendedKey
+  // Convert the extended key prefix to match the script version
+  const convertedExtendedKey = await convertExtendedKeyPrefix(
+    extendedKey,
+    key.scriptVersion,
+    network
+  )
+
+  return convertedExtendedKey
 }
 
 async function syncWallet(
@@ -761,6 +857,30 @@ async function getFingerprint(
   return fingerprint
 }
 
+async function getFingerprintFromExtendedPublicKey(extendedPublicKey: string) {
+  try {
+    // Create a simple descriptor with the extended public key and parse it
+    // This will extract the fingerprint automatically
+    const network = 'signet' // Default network for parsing
+    const descriptorPublicKey = await new DescriptorPublicKey().fromString(
+      extendedPublicKey
+    )
+
+    // Create a descriptor using the extended public key
+    const descriptor = await new Descriptor().newBip84Public(
+      descriptorPublicKey,
+      '', // Empty fingerprint - BDK will extract it from the xpub
+      'External' as any,
+      network as any
+    )
+
+    const { fingerprint } = await parseDescriptor(descriptor)
+    return fingerprint
+  } catch {
+    return ''
+  }
+}
+
 async function getLastUnusedAddressFromWallet(wallet: Wallet) {
   const newAddress = await wallet.getAddress(AddressIndex.New)
 
@@ -822,6 +942,7 @@ async function broadcastTransaction(
 export {
   broadcastTransaction,
   buildTransaction,
+  convertExtendedKeyPrefix,
   extractExtendedKeyFromDescriptor,
   generateMnemonic,
   generateMnemonicFromEntropy,
@@ -829,6 +950,7 @@ export {
   getDescriptor,
   getExtendedPublicKeyFromAccountKey,
   getFingerprint,
+  getFingerprintFromExtendedPublicKey,
   getLastUnusedAddressFromWallet,
   getTransactionInputValues,
   getWalletAddresses,

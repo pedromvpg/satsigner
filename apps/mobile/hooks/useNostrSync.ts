@@ -521,7 +521,9 @@ function useNostrSync() {
 
       for (const key of temporaryAccount.keys) {
         const decryptedSecretString = await aesDecrypt(
-          key.secret as string,
+          typeof key.secret === 'string'
+            ? key.secret
+            : JSON.stringify(key.secret),
           pin,
           key.iv
         )
@@ -552,7 +554,10 @@ function useNostrSync() {
       }
 
       const [, , purpose, coinType, accountIndex] = match
-      const hardenedPath = `m/${purpose.replace("'", 'h')}/${coinType.replace("'", 'h')}/${accountIndex.replace("'", 'h')}`
+      const hardenedPath = `m/${purpose.replace("'", 'h')}/${coinType.replace(
+        "'",
+        'h'
+      )}/${accountIndex.replace("'", 'h')}`
 
       const xpubRegex = /(tpub|vpub|upub|zpub)[a-zA-Z0-9]+/g
       const xpubs = (descriptor.match(xpubRegex) || []).sort()

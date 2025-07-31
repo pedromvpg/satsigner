@@ -31,6 +31,7 @@
     "entropy.title": "Extra Entropy",
     "export.config": "Export config",
     "export.descriptors": "Export descriptors",
+    "export.descriptorsPDF": "Export as PDF",
     "export.labels": "Export labels",
     "export.noLabels.description": "Once you add labels to your transactions, utxos, and addresses, you will be able to export them.",
     "export.noLabels.title": "No labels",
@@ -39,6 +40,7 @@
     "generate.disclaimer.2": "Consider an air-gapped hardware device for generating keys for significant amounts.",
     "generate.disclaimer.3": "Losing this information will lose the funds.",
     "generate.multi.title": "Generate Keys",
+    "generate.newSecretSeed": "Generate new secret seed",
     "generate.title": "Generate seed",
     "generate.warning": "Keep this information secret and backed up.",
     "import.descriptor": "Import Descriptor",
@@ -48,10 +50,15 @@
     "import.multi.title": "Import Keys",
     "import.title": "Import existing seed",
     "import.title2": "Import seed",
+    "import.vpub": "Import VPUB",
     "import.watchOnly.title": "Import watch-only",
     "import.wif.title": "Import WIF (single key)",
     "import.word.noMatch": "No matching words",
+    "import.xpub": "Import XPUB",
+    "import.ypub": "Import YPUB",
+    "import.zpub": "Import ZPUB",
     "key.number": "Key number",
+    "keys.management": "Keys Management",
     "load.sample.bitcoin.address.salvador": "Load sample watch-only EI Salvador",
     "load.sample.bitcoin.address.segwit": "Load sample watch-only Segwit",
     "load.sample.bitcoin.address.tether": "Load sample multi-address watch-only Tether",
@@ -111,7 +118,7 @@
     "nostrSync.tabs.manual": "Manual",
     "nostrSync.title": "Nostr Sync",
     "parentAccountActivity": "Parent Account Activity",
-    "participant.keyName": "Key Name",
+    "participant.keyName": "Key Alias",
     "policy.multiSignature.description": "Add multiple signers",
     "policy.multiSignature.title": "Multi Signature",
     "policy.singleSignature.description": "Basic wallet for signing with keys stored in satsigner or from external devices",
@@ -133,7 +140,9 @@
     "seed.sharePub": "Share XPub",
     "seed.unableToDecrypt": "Unable to decrypt seed",
     "selectKeySource": "Select Key Source",
-    "settings.title": "Account Settings and Tools",
+    "settings": {
+      "title": "Master Key Settings and Tools"
+    },
     "signAndSend": "Sign & Send",
     "signatureRequired": "Signatures Required",
     "sync.status.error": "Can't sync",
@@ -148,6 +157,7 @@
     "syncFailed": "Failed to sync wallet. Make sure you have internet connection.",
     "syncProgress": "Syncing... %{tasksDone}/%{totalTasks} completed",
     "utxos": "UTXOs",
+    "view.descriptor": "View Descriptor",
     "viewMnemonic": "View mnemonic"
   },
   "accounts": {
@@ -252,6 +262,7 @@
   "camera": {
     "enableCameraAccess": "Enable Camera Access",
     "permissions": "Enable camera access in your phone's settings to scan a QR code.",
+    "scanNFC": "Scan NFC",
     "scanQRCode": "Scan QRCode",
     "scanText": "Scan any Bitcoin or Lightning related QR code."
   },
@@ -264,12 +275,14 @@
     "backToAccountHome": "Back to account home",
     "cancel": "Cancel",
     "clear": "Clear",
+    "clearKeys": "You will lose all created keys. Are you sure?",
     "close": "Close",
     "confirm": "Confirm",
     "connected": "Connected",
     "continue": "Continue",
     "copiedToClipboard": "Copied to clipboard",
     "copy": "Copy",
+    "copyFailed": "Failed to copy to clipboard",
     "copyToClipboard": "Copy to clipboard",
     "create": "Create",
     "createTag": "Create tag %{tag}",
@@ -293,6 +306,8 @@
     "more": "More",
     "name": "Name",
     "next": "Next",
+    "nfcShareFailed": "Failed to share via NFC",
+    "nfcShared": "Shared via NFC",
     "no": "No",
     "noLabel": "No label",
     "of": "Of",
@@ -306,10 +321,12 @@
     "select": "Select",
     "selectAll": "Select All",
     "selected": "Selected",
+    "shareViaNFC": "Share via NFC",
     "skip": "Skip",
     "tags": "Tags",
     "to": "To",
     "total": "Total",
+    "unexpectedError": "An unexpected error occurred. Please try again.",
     "valid": "Valid",
     "version": "Version",
     "warning": "Warning",
@@ -399,11 +416,13 @@
     "years": "years"
   },
   "error": {
+    "error_scriptTypeMismatch": "All keys must have the same script type. Please check your keys.",
     "invalid.backend": "Invalid Backend",
     "invalid.url": "Invalid URL",
     "notFound.wallet": "Wallet not found",
     "require.name": "Name is required",
-    "require.url": "URL is required"
+    "require.url": "URL is required",
+    "scriptTypeMismatch": "All keys must have the same script type. Please check your keys."
   },
   "explorer": {
     "block.date": "Date (from header)",
@@ -452,7 +471,11 @@
   },
   "import": {
     "from": "Import from %{name}",
-    "success": "Imported %{importCount} from a total of %{total} labels matching your wallet"
+    "success": "Imported %{importCount} from a total of %{total} labels matching your wallet",
+    "vpub": "Import vpub",
+    "xpub": "Import xpub",
+    "ypub": "Import ypub",
+    "zpub": "Import zpub"
   },
   "navigation": {
     "item.bitcoin": "Bitcoin",
@@ -961,14 +984,24 @@
   "watchonly": {
     "fingerprint.label": "Master Fingerprint",
     "fingerprint.text": "Fingerprint",
-    "importAddress.label": "Address",
-    "importAddress.text": "A single bitcoin address",
-    "importAddress.title": "Address",
-    "importDescriptor.external": "External Descriptor",
-    "importDescriptor.internal": "Internal Descriptor (optional)",
-    "importDescriptor.label": "Descriptor",
-    "importDescriptor.text": "A Bitcoin descriptor is a flexible and expressive way to describe how Bitcoin addresses and keys are derived and used within a wallet. Introduced in BIP 174, descriptors allow users to specify the structure of their wallets in a more human-readable format. They can represent various types of addresses, including standard pay-to-public-key-hash (P2PKH), pay-to-script-hash (P2SH), and more complex constructions such as multisig. Descriptors improve wallet interoperability and make it easier for software to understand how to derive keys and addresses based on user-defined rules.",
-    "importDescriptor.title": "Descriptor",
+    "importAddress": {
+      "empty": "Please enter at least one address",
+      "invalid": "Invalid address. Please check your input.",
+      "label": "Address",
+      "placeholderMultiple": "Enter Bitcoin addresses, one per line (e.g., bc1q...)",
+      "placeholderSingle": "Enter a Bitcoin address (e.g., bc1q...)",
+      "text": "A single bitcoin address",
+      "title": "Address"
+    },
+    "importDescriptor": {
+      "external": "External Descriptor",
+      "internal": "Internal Descriptor (optional)",
+      "internalPlaceholder": "Enter internal descriptor (optional)",
+      "invalid": "Invalid descriptor. Please check your input.",
+      "label": "Descriptor",
+      "text": "A Bitcoin descriptor is a flexible and expressive way to describe how Bitcoin addresses and keys are derived and used within a wallet. Introduced in BIP 174, descriptors allow users to specify the structure of their wallets in a more human-readable format. They can represent various types of addresses, including standard pay-to-public-key-hash (P2PKH), pay-to-script-hash (P2SH), and more complex constructions such as multisig. Descriptors improve wallet interoperability and make it easier for software to understand how to derive keys and addresses based on user-defined rules.",
+      "title": "Descriptor"
+    },
     "importExtendedPub.label": "XPUB / YPUB / ZPUB",
     "importExtendedPub.text": "An extended public key is a type of key used in Bitcoin that allows for the generation of multiple public addresses from a single key. It is part of the hierarchical deterministic (HD) wallet structure defined by BIP32. An xpub can generate child public keys, which can be used to receive funds without exposing the corresponding private keys. This feature is useful for managing multiple addresses while maintaining privacy and security, as users can receive payments at different addresses without needing to create new wallets or expose sensitive information.",
     "importExtendedPub.title": "Extended Public Key",

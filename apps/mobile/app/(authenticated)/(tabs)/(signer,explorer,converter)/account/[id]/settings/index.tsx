@@ -52,7 +52,9 @@ export default function AccountSettings() {
   const [accountName, setAccountName] = useState<Account['name']>(
     account?.name || ''
   )
-  const [localMnemonic, setLocalMnemonic] = useState('')
+  const [decryptedMnemonic, setDecryptedMnemonic] = useState('')
+  const [decryptedKeys, setDecryptedKeys] = useState<Key[]>([])
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   const [scriptVersionModalVisible, setScriptVersionModalVisible] =
     useState(false)
@@ -95,6 +97,26 @@ export default function AccountSettings() {
 
     if (isPinValid) {
       setShowPinEntry(false)
+      // Decrypt the mnemonic
+      if (account?.keys[0]) {
+        const key = account.keys[0]
+        if (typeof key.secret === 'string') {
+          try {
+            const decryptedSecretString = await aesDecrypt(
+              key.secret,
+              pinString,
+              key.iv
+            )
+            const decryptedSecret = JSON.parse(decryptedSecretString) as Secret
+            setDecryptedMnemonic(decryptedSecret.mnemonic || '')
+          } catch {
+            setDecryptedMnemonic('')
+          }
+        } else {
+          const secret = key.secret as Secret
+          setDecryptedMnemonic(secret.mnemonic || '')
+        }
+      }
       setMnemonicModalVisible(true)
     }
   }
@@ -110,21 +132,48 @@ export default function AccountSettings() {
     router.replace('/accountList')
   }
 
+  function triggerRefresh() {
+    setRefreshTrigger((prev) => prev + 1)
+  }
+
   useEffect(() => {
-    async function getMnemonic() {
+    async function decryptAllKeys() {
+      if (!account) return
       const pin = await getItem(PIN_KEY)
-      if (!account || !pin) return
-
-      const iv = account.keys[0].iv
-      const encryptedSecret = account.keys[0].secret as string
-
-      const accountSecretString = await aesDecrypt(encryptedSecret, pin, iv)
-      const accountSecret = JSON.parse(accountSecretString) as Secret
-
-      setLocalMnemonic(accountSecret.mnemonic || '')
+      if (!pin) return
+      const keys: Key[] = []
+      setNetwork(account.network)
+      for (const key of account.keys) {
+        if (typeof key.secret === 'string') {
+          try {
+            const decryptedSecretString = await aesDecrypt(
+              key.secret,
+              pin,
+              key.iv
+            )
+            const decryptedSecret = JSON.parse(decryptedSecretString)
+            // Ensure fingerprint is set at the top level if present in secret
+            const fingerprint =
+              key.fingerprint || decryptedSecret.fingerprint || ''
+            keys.push({ ...key, secret: decryptedSecret, fingerprint })
+          } catch {
+            keys.push(key)
+          }
+        } else {
+          // Also ensure fingerprint is set if secret is already decrypted
+          const fingerprint =
+            key.fingerprint ||
+            (typeof key.secret === 'object' &&
+              'fingerprint' in key.secret &&
+              key.secret.fingerprint) ||
+            ''
+          keys.push({ ...key, fingerprint })
+        }
+      }
+      setDecryptedKeys(keys)
     }
-    getMnemonic()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    decryptAllKeys()
+  }, [currentAccountId, refreshTrigger, account])
 
   if (!currentAccountId || !account || !scriptVersion)
     return <Redirect href="/" />
@@ -173,15 +222,6 @@ export default function AccountSettings() {
               />
             </SSHStack>
           )}
-          <SSButton
-            style={styles.button}
-            label={t('account.export.descriptors')}
-            onPress={() =>
-              router.navigate(
-                `/account/${currentAccountId}/settings/export/descriptors`
-              )
-            }
-          />
         </SSVStack>
         <SSVStack>
           <SSHStack>
@@ -202,6 +242,24 @@ export default function AccountSettings() {
                   `/account/${currentAccountId}/settings/import/labels`
                 )
               }
+            />
+          </SSHStack>
+          <SSHStack>
+            <SSButton
+              style={styles.button}
+              label={t('account.view.descriptor')}
+              onPress={() =>
+                router.navigate(
+                  `/account/${currentAccountId}/settings/export/descriptors`
+                )
+              }
+            />
+            <SSButton
+              style={styles.button}
+              label={t('account.export.config')}
+              onPress={() => {
+                // TODO: Implement export config functionality
+              }}
             />
           </SSHStack>
           <SSButton
@@ -233,39 +291,70 @@ export default function AccountSettings() {
             <SSFormLayout.Item>
               <SSFormLayout.Label label={t('account.script')} />
               <SSButton
-                label={`${t(`script.${scriptVersion.toLocaleLowerCase()}.name`)} (${scriptVersion})`}
+                label={`${t(
+                  `script.${scriptVersion.toLocaleLowerCase()}.name`
+                )} (${scriptVersion})`}
                 onPress={() => setScriptVersionModalVisible(true)}
                 withSelect
               />
             </SSFormLayout.Item>
           )}
         </SSFormLayout>
-        {account.policyType === 'multisig' && (
-          <>
-            <SSVStack gap="md" style={styles.multiSigContainer}>
-              <SSMultisigCountSelector
-                maxCount={12}
-                requiredNumber={account.keysRequired!}
-                totalNumber={account.keyCount!}
-                viewOnly
+      </SSVStack>
+
+      {account.policyType === 'multisig' && (
+        <>
+          <SSVStack gap="md" style={styles.multiSigContainer}>
+            <SSMultisigCountSelector
+              maxCount={12}
+              requiredNumber={account.keysRequired!}
+              totalNumber={account.keyCount!}
+              viewOnly
+            />
+            <SSText center>{t('account.keys.management')}</SSText>
+          </SSVStack>
+          <SSVStack gap="none">
+            {decryptedKeys.map((key, index) => (
+              <SSMultisigKeyControl
+                key={index}
+                isBlackBackground={index % 2 === 0}
+                index={index}
+                keyCount={decryptedKeys.length}
+                keyDetails={key}
+                isSettingsMode
+                accountId={currentAccountId}
+                onRefresh={triggerRefresh}
               />
-              <SSText center>{t('account.addOrGenerateKeys')}</SSText>
-            </SSVStack>
-            <SSVStack gap="none" style={styles.multiSigKeyControlCOntainer}>
-              {account.keys.map((key, index) => (
-                <SSMultisigKeyControl
-                  key={index}
-                  isBlackBackground={index % 2 === 1}
-                  index={index}
-                  keyCount={account.keyCount}
-                  keyDetails={key}
-                />
-              ))}
-            </SSVStack>
-          </>
-        )}
+            ))}
+          </SSVStack>
+        </>
+      )}
+
+      {(account.policyType === 'singlesig' ||
+        account.policyType === 'watchonly') && (
+        <>
+          <SSVStack gap="md" style={styles.multiSigContainer}>
+            <SSText center>{t('account.keys.management')}</SSText>
+          </SSVStack>
+          <SSVStack gap="none">
+            {account.keys.map((key, index) => (
+              <SSMultisigKeyControl
+                key={index}
+                isBlackBackground={index % 2 === 0}
+                index={index}
+                keyCount={account.keys.length}
+                keyDetails={key}
+                isSettingsMode
+                accountId={currentAccountId}
+                onRefresh={triggerRefresh}
+              />
+            ))}
+          </SSVStack>
+        </>
+      )}
+
+      <SSVStack gap="lg" style={styles.mainLayout}>
         <SSVStack style={styles.actionsContainer}>
-          <SSButton label={t('account.duplicate.title')} />
           <SSButton
             label={t('account.delete.title')}
             style={styles.deleteButton}
@@ -383,7 +472,7 @@ export default function AccountSettings() {
         closeButtonVariant="ghost"
         label={t('common.close')}
       >
-        {localMnemonic && (
+        {decryptedMnemonic && (
           <View style={styles.mnemonicModalOuterContainer}>
             <SSVStack gap="lg" style={styles.mnemonicModalContainer}>
               <SSText center uppercase>
@@ -418,7 +507,7 @@ export default function AccountSettings() {
                               (_, rowIndex) => {
                                 const wordIndex =
                                   colIndex * wordsPerColumn + rowIndex
-                                const words = localMnemonic.split(' ')
+                                const words = decryptedMnemonic.split(' ')
                                 const word =
                                   wordIndex < words.length &&
                                   rowIndex < wordsInThisColumn
@@ -460,7 +549,7 @@ export default function AccountSettings() {
               </View>
             </SSVStack>
             <View style={styles.copyButtonContainer}>
-              <SSClipboardCopy text={localMnemonic.replaceAll(',', ' ')}>
+              <SSClipboardCopy text={decryptedMnemonic.replaceAll(',', ' ')}>
                 <SSButton
                   label={t('common.copy')}
                   style={styles.copyButton}
@@ -470,7 +559,9 @@ export default function AccountSettings() {
             </View>
           </View>
         )}
-        {!localMnemonic && <SSText>{t('account.seed.unableToDecrypt')}</SSText>}
+        {!decryptedMnemonic && (
+          <SSText>{t('account.seed.unableToDecrypt')}</SSText>
+        )}
       </SSModal>
       <SSModal visible={showPinEntry} onClose={() => setShowPinEntry(false)}>
         <SSPinEntry

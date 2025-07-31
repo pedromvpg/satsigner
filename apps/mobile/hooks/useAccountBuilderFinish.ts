@@ -2,7 +2,7 @@ import { type Network } from 'bdk-rn/lib/lib/enums'
 import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { getWalletData } from '@/api/bdk'
+import { getExtendedPublicKeyFromAccountKey, getWalletData } from '@/api/bdk'
 import { PIN_KEY } from '@/config/auth'
 import { getItem } from '@/storage/encrypted'
 import { useAccountBuilderStore } from '@/store/accountBuilder'
@@ -47,6 +47,34 @@ function useAccountBuilderFinish() {
     if (!isImportAddress && !walletData) return // TODO: handle error
 
     for (const key of account.keys) {
+      // --- BEGIN: Save fingerprint, derivation path, and public key ---
+      // Use walletData if available, otherwise keep existing
+      if (walletData) {
+        key.fingerprint = walletData.fingerprint || key.fingerprint
+        // Only set derivation path for non-importExtendedPub creation types
+        if (key.creationType !== 'importExtendedPub') {
+          key.derivationPath = walletData.derivationPath || key.derivationPath
+        }
+      }
+      // Always try to set public key if not present
+      if (typeof key.secret === 'object') {
+        if (!key.secret.extendedPublicKey && !key.secret.xpub) {
+          // Try to extract public key
+          const pubkey = await getExtendedPublicKeyFromAccountKey(
+            key,
+            network as Network
+          )
+          if (pubkey) key.secret.extendedPublicKey = pubkey
+        }
+        // Save fingerprint and derivation path in secret as well
+        key.secret.fingerprint = key.fingerprint
+        // Only save derivation path for non-importExtendedPub creation types
+        if (key.creationType !== 'importExtendedPub') {
+          key.secret.derivationPath = key.derivationPath
+        }
+      }
+      // --- END: Save fingerprint, derivation path, and public key ---
+
       const stringifiedSecret = JSON.stringify(key.secret)
       const pin = await getItem(PIN_KEY)
       if (!pin) return // TODO: handle error
@@ -59,7 +87,10 @@ function useAccountBuilderFinish() {
 
       if (walletData) {
         updateKeyFingerprint(key.index, walletData.fingerprint)
-        setKeyDerivationPath(key.index, walletData.derivationPath)
+        // Only set derivation path for non-importExtendedPub creation types
+        if (key.creationType !== 'importExtendedPub') {
+          setKeyDerivationPath(key.index, walletData.derivationPath)
+        }
       }
       updateKeySecret(key.index, encryptedSecret)
     }

@@ -23,6 +23,7 @@ type AccountBuilderState = {
   externalDescriptor?: Secret['externalDescriptor']
   internalDescriptor?: Secret['internalDescriptor']
   extendedPublicKey?: Secret['extendedPublicKey']
+  internalExtendedPublicKey?: Secret['extendedPublicKey']
   fingerprint?: Key['fingerprint']
   scriptVersion: NonNullable<Key['scriptVersion']>
   keys: Account['keys']
@@ -50,6 +51,9 @@ type AccountBuilderAction = {
   ) => void
   setExtendedPublicKey: (
     extendedPublicKey: NonNullable<Secret['extendedPublicKey']>
+  ) => void
+  setInternalExtendedPublicKey: (
+    internalExtendedPublicKey: NonNullable<Secret['extendedPublicKey']>
   ) => void
   setFingerprint: (
     fingerprint: NonNullable<AccountBuilderState['fingerprint']>
@@ -87,6 +91,7 @@ const initialState: AccountBuilderState = {
   externalDescriptor: undefined,
   internalDescriptor: undefined,
   extendedPublicKey: undefined,
+  internalExtendedPublicKey: undefined,
   fingerprint: undefined,
   scriptVersion: 'P2WPKH',
   keys: [],
@@ -134,6 +139,9 @@ const useAccountBuilderStore = create<
   setExtendedPublicKey: (extendedPublicKey) => {
     set({ extendedPublicKey })
   },
+  setInternalExtendedPublicKey: (internalExtendedPublicKey) => {
+    set({ internalExtendedPublicKey })
+  },
   setFingerprint: (fingerprint) => {
     set({ fingerprint })
   },
@@ -167,7 +175,44 @@ const useAccountBuilderStore = create<
       },
       iv: uuid.v4().replace(/-/g, ''),
       fingerprint,
-      scriptVersion
+      scriptVersion,
+      // Only set derivationPath if it's not importExtendedPub creation type
+      ...(creationType !== 'importExtendedPub' && {
+        derivationPath: get().keys[index]?.derivationPath || undefined
+      }),
+      // Ensure extendedPublicKey is also set at the top level if present in secret
+      ...(extendedPublicKey ? { extendedPublicKey } : {})
+    }
+
+    // Warn if any required field is missing based on creation type
+    const missingFields: string[] = []
+
+    // scriptVersion is always required
+    if (!key.scriptVersion) {
+      missingFields.push('scriptVersion')
+    }
+
+    // fingerprint is always required
+    if (!key.fingerprint) {
+      missingFields.push('fingerprint')
+    }
+
+    // extendedPublicKey is always required
+    if (!extendedPublicKey) {
+      missingFields.push('extendedPublicKey')
+    }
+
+    // derivationPath is only required for non-importExtendedPub creation types
+    if (creationType !== 'importExtendedPub' && !key.derivationPath) {
+      missingFields.push('derivationPath')
+    }
+
+    if (missingFields.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `Key at index ${index} is missing required info: ` +
+          `scriptVersion=${key.scriptVersion}, fingerprint=${key.fingerprint}, derivationPath=${key.derivationPath}, extendedPublicKey=${extendedPublicKey}`
+      )
     }
 
     set(
@@ -264,9 +309,9 @@ const useAccountBuilderStore = create<
       mnemonic: '',
       passphrase: undefined,
       fingerprint: undefined,
-      scriptVersion: 'P2WPKH',
       externalDescriptor: undefined,
-      extendedPublicKey: undefined
+      extendedPublicKey: undefined,
+      internalExtendedPublicKey: undefined
     })
   },
   clearAccount: () => {

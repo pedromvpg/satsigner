@@ -1,12 +1,16 @@
 import { type Network } from 'bdk-rn/lib/lib/enums'
+import * as Print from 'expo-print'
 import { Redirect, router, Stack, useLocalSearchParams } from 'expo-router'
-import { useEffect, useState } from 'react'
+import * as Sharing from 'expo-sharing'
+import { useEffect, useRef, useState } from 'react'
 import { ScrollView, View } from 'react-native'
+import { captureRef } from 'react-native-view-shot'
 
 import { getWalletData } from '@/api/bdk'
 import { SSIconEyeOn } from '@/components/icons'
 import SSButton from '@/components/SSButton'
 import SSClipboardCopy from '@/components/SSClipboardCopy'
+import SSQRCode from '@/components/SSQRCode'
 import SSText from '@/components/SSText'
 import { PIN_KEY } from '@/config/auth'
 import SSHStack from '@/layouts/SSHStack'
@@ -30,6 +34,7 @@ export default function ExportDescriptors() {
   const network = useBlockchainStore((state) => state.selectedNetwork)
 
   const [exportContent, setExportContent] = useState('')
+  const qrRef = useRef<View>(null)
 
   useEffect(() => {
     async function getDescriptors() {
@@ -41,28 +46,107 @@ export default function ExportDescriptors() {
 
         const temporaryAccount = JSON.parse(JSON.stringify(account)) as Account
 
+        // Decrypt all keys and extract fingerprint, derivation path, and public key
         for (const key of temporaryAccount.keys) {
-          const decryptedSecretString = await aesDecrypt(
-            key.secret as string,
-            pin,
-            key.iv
-          )
-          const decryptedSecret = JSON.parse(decryptedSecretString) as Secret
-          key.secret = decryptedSecret
+          if (typeof key.secret === 'string') {
+            // Decrypt the secret
+            const decryptedSecretString = await aesDecrypt(
+              key.secret,
+              pin,
+              key.iv
+            )
+            const decryptedSecret = JSON.parse(decryptedSecretString) as Secret
+            key.secret = decryptedSecret
+
+            // Extract fingerprint and derivation path from decrypted secret
+            // Use the same pattern as account settings: prefer top-level, fallback to secret
+            key.fingerprint =
+              key.fingerprint || decryptedSecret.fingerprint || ''
+            key.derivationPath =
+              key.derivationPath || decryptedSecret.derivationPath || ''
+          } else {
+            // Secret is already decrypted, ensure fingerprint and derivation path are set
+            const secret = key.secret as Secret
+            key.fingerprint = key.fingerprint || secret.fingerprint || ''
+            key.derivationPath =
+              key.derivationPath || secret.derivationPath || ''
+          }
         }
 
         const walletData = !isImportAddress
           ? await getWalletData(temporaryAccount, network as Network)
           : undefined
 
-        const descriptors = !isImportAddress
-          ? [walletData?.externalDescriptor!, walletData?.internalDescriptor!]
-          : [
-              (typeof temporaryAccount.keys[0].secret === 'object' &&
-                temporaryAccount.keys[0].secret.externalDescriptor!) as string
-            ]
+        // --- BEGIN: Multisig Key Details Formatting ---
+        let descriptorString = ''
+        if (!isImportAddress) {
+          // For multisig, reconstruct descriptor with [fingerprint/derivation]xpub for each key
+          // Use walletData.externalDescriptor as template, but replace key section
+          // Example: wsh(sortedmulti(2,[fpr/path]xpub,...))
+          const externalDescriptor = walletData?.externalDescriptor || ''
 
-        setExportContent(descriptors.join('\n'))
+          // More flexible regex to match multisig descriptors
+          // Handles: wsh(multi(...)), wsh(sortedmulti(...)), multi(...), sortedmulti(...)
+          const match = externalDescriptor.match(
+            /^(.*?(?:sorted)?multi\(\d+,)(.*)(\).*)$/
+          )
+
+          if (match) {
+            const prefix = match[1]
+            const suffix = match[3]
+
+            // Build key section
+            const keySection = temporaryAccount.keys
+              .map((key) => {
+                const secret = key.secret as Secret
+                // Extract fingerprint and derivation path using the established pattern
+                // Check both top-level and decrypted secret, like in SSMultisigKeyControl
+                const fingerprint =
+                  key.fingerprint ||
+                  (typeof secret === 'object' &&
+                    'fingerprint' in secret &&
+                    secret.fingerprint) ||
+                  ''
+                const derivationPath =
+                  key.derivationPath ||
+                  (typeof secret === 'object' &&
+                    'derivationPath' in secret &&
+                    secret.derivationPath) ||
+                  ''
+                const xpub =
+                  (typeof secret === 'object' &&
+                    (secret.extendedPublicKey || secret.xpub)) ||
+                  ''
+
+                // Format: [FINGERPRINT/DERIVATION_PATH]XPUB
+                // For importExtendedPub, we don't have derivation path, so just use fingerprint
+                if (key.creationType === 'importExtendedPub') {
+                  const keyPart = `[${fingerprint}]${xpub}`
+                  return keyPart
+                } else {
+                  // Remove leading 'm' or 'M' from derivationPath if present
+                  const cleanPath = derivationPath.replace(/^m\/?/i, '')
+                  const keyPart = `[${fingerprint}/${cleanPath}]${xpub}`
+                  return keyPart
+                }
+              })
+              .join(',')
+            descriptorString = `${prefix}${keySection}${suffix}`
+          } else {
+            // fallback to original descriptor
+            descriptorString = externalDescriptor
+          }
+        } else {
+          // For importAddress, fallback to single key descriptor
+          descriptorString = (typeof temporaryAccount.keys[0].secret ===
+            'object' &&
+            temporaryAccount.keys[0].secret.externalDescriptor!) as string
+        }
+        // --- END: Multisig Key Details Formatting ---
+
+        // Compose export content
+        const exportString = descriptorString
+        setExportContent(exportString)
       } catch {
         // TODO
       }
@@ -74,13 +158,141 @@ export default function ExportDescriptors() {
     if (!account) return
     const date = new Date().toISOString().slice(0, -5)
     const ext = 'txt'
-    const filename = `${t('export.file.name.descriptors')}_${accountId}_${date}.${ext}`
     shareFile({
-      filename,
+      filename: `${t(
+        'export.file.name.descriptors'
+      )}_${accountId}_${date}.${ext}`,
       fileContent: exportContent,
       dialogTitle: t('export.file.save'),
       mimeType: `text/plain`
     })
+  }
+
+  async function exportDescriptorsPDF() {
+    if (!account || !exportContent) return
+
+    try {
+      // Generate PDF with QR code using a different approach
+      generatePDF()
+    } catch {
+      // Handle error silently
+    }
+  }
+
+  async function generatePDF() {
+    if (!account || !exportContent) return
+
+    try {
+      // Capture QR code as image using react-native-view-shot
+      let qrDataURL = ''
+      if (qrRef.current) {
+        qrDataURL = await captureRef(qrRef.current, {
+          format: 'png',
+          quality: 0.9,
+          result: 'data-uri'
+        })
+      }
+
+      await createPDFWithQR(qrDataURL)
+    } catch {
+      // Fallback without QR code
+      await createPDFWithQR('')
+    }
+  }
+
+  async function createPDFWithQR(qrDataURL: string) {
+    if (!account) return
+    const title = account.name
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${title}</title>
+          <style>
+            @page {
+              margin: 1in;
+              size: A4;
+            }
+            
+            body {
+              font-family: 'Courier New', monospace;
+              margin: 0;
+              padding: 20px;
+              background-color: white;
+              color: black;
+              line-height: 1.4;
+            }
+            
+            .header {
+              text-align: center;
+              font-size: 24px;
+              font-weight: bold;
+              margin-bottom: 30px;
+            }
+            
+            .qr-section {
+              text-align: center;
+              margin: 30px 0;
+              page-break-inside: avoid;
+            }
+            
+            .qr-code {
+              max-width: 300px;
+              max-height: 300px;
+              border: 2px solid #000;
+              margin: 0 auto;
+              display: block;
+            }
+            
+            .descriptor-text {
+              font-family: 'Courier New', monospace;
+              font-size: 11px;
+              word-break: break-all;
+              background-color: #f8f8f8;
+              padding: 20px;
+              border: 1px solid #ddd;
+              margin: 15px 0;
+              line-height: 1.6;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">${title}</div>
+          
+          ${
+            qrDataURL
+              ? `
+          <div class="qr-section">
+            <img src="${qrDataURL}" class="qr-code" alt="QR Code for descriptor" />
+          </div>
+          `
+              : ''
+          }
+          
+          <div class="descriptor-text">${exportContent}</div>
+        </body>
+      </html>
+    `
+
+    try {
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        base64: false
+      })
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: t('export.file.save'),
+          UTI: 'com.adobe.pdf'
+        })
+      }
+    } catch {
+      // Handle error silently
+    }
   }
 
   if (!account) return <Redirect href="/" />
@@ -104,6 +316,15 @@ export default function ExportDescriptors() {
         <SSText center uppercase color="muted">
           {t('account.export.descriptors')}
         </SSText>
+
+        {exportContent && (
+          <View style={{ alignItems: 'center', marginVertical: 20 }}>
+            <View ref={qrRef} style={{ padding: 10, backgroundColor: 'white' }}>
+              <SSQRCode value={exportContent} size={200} />
+            </View>
+          </View>
+        )}
+
         <View
           style={{
             padding: 10,
@@ -119,8 +340,13 @@ export default function ExportDescriptors() {
           <SSButton label={t('common.copyToClipboard')} onPress={() => true} />
         </SSClipboardCopy>
         <SSButton
-          label={t('common.downloadFile')}
+          label={t('account.export.descriptorsPDF')}
           variant="secondary"
+          onPress={exportDescriptorsPDF}
+        />
+        <SSButton
+          label={t('common.downloadFile')}
+          variant="outline"
           onPress={exportDescriptors}
         />
         <SSButton

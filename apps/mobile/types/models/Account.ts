@@ -34,6 +34,11 @@ export type Secret = {
   internalDescriptor?: string
   /** Only for watch-only */
   extendedPublicKey?: string
+  /** Only for imported xpubs */
+  xpub?: string
+  // Added for multisig export/backup
+  fingerprint?: string
+  derivationPath?: string
 }
 
 export type Key = {
