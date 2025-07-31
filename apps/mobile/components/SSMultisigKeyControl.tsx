@@ -17,6 +17,7 @@ import { useAccountBuilderStore } from '@/store/accountBuilder'
 import { useAccountsStore } from '@/store/accounts'
 import { useBlockchainStore } from '@/store/blockchain'
 import { type Key, type Secret } from '@/types/models/Account'
+import { type NetworkType, type ScriptVersion } from '@/utils/validation'
 import { aesDecrypt, aesEncrypt } from '@/utils/crypto'
 
 type SSMultisigKeyControlProps = {
@@ -46,7 +47,12 @@ function SSMultisigKeyControl({
       state.setNetwork
     ])
   )
-  const network = useBlockchainStore((state) => state.selectedNetwork)
+  const network = useBlockchainStore(
+    (state) => state.selectedNetwork
+  ) as NetworkType
+  const scriptVersion = useAccountBuilderStore(
+    (state) => state.scriptVersion
+  ) as ScriptVersion
   const updateKeyName = useAccountsStore((state) => state.updateKeyName)
   const updateAccount = useAccountsStore((state) => state.updateAccount)
 
@@ -111,10 +117,13 @@ function SSMultisigKeyControl({
     } else if (type === 'importMnemonic') {
       router.navigate(`/account/add/import/mnemonic/${index}`)
     } else if (type === 'importDescriptor') {
-      router.navigate(`/account/add/import/descriptor/${index}`)
+      router.navigate(
+        `/account/add/import/unified/${index}?importType=descriptor`
+      )
     } else if (type === 'importExtendedPub') {
-      // Handle import extended public key - you may need to create this route
-      router.navigate(`/account/add/import/extendedPub/${index}`)
+      router.navigate(
+        `/account/add/import/unified/${index}?importType=extendedPub`
+      )
     }
   }
 

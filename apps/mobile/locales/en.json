@@ -984,9 +984,15 @@
   "watchonly": {
     "fingerprint.label": "Master Fingerprint",
     "fingerprint.text": "Fingerprint",
-    "importAddress.label": "Address",
-    "importAddress.text": "A single bitcoin address",
-    "importAddress.title": "Address",
+    "importAddress": {
+      "empty": "Please enter at least one address",
+      "invalid": "Invalid address. Please check your input.",
+      "label": "Address",
+      "placeholderMultiple": "Enter Bitcoin addresses, one per line (e.g., bc1q...)",
+      "placeholderSingle": "Enter a Bitcoin address (e.g., bc1q...)",
+      "text": "A single bitcoin address",
+      "title": "Address"
+    },
     "importDescriptor": {
       "external": "External Descriptor",
       "internal": "Internal Descriptor (optional)",

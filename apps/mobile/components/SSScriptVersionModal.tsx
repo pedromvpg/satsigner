@@ -16,8 +16,8 @@ type ScriptVersion = NonNullable<Key['scriptVersion']>
 const scriptVersions: ScriptVersion[] = [
   'P2PKH',
   'P2SH-P2WPKH',
-  'P2WPKH',
-  'P2TR'
+  'P2WPKH'
+  // 'P2TR' - Disabled as requested
 ]
 
 type SSScriptVersionModalProps = {
