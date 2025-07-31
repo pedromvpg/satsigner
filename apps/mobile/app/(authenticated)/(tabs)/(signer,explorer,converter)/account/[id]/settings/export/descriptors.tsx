@@ -202,12 +202,7 @@ export default function ExportDescriptors() {
 
   async function createPDFWithQR(qrDataURL: string) {
     if (!account) return
-    const title = `Output descriptor for ${account.name}`
-
-    // Split exportContent for PDF formatting
-    const [keyDetailsSection, ...descriptorSectionArr] =
-      exportContent.split('Descriptor(s):')
-    const descriptorSection = descriptorSectionArr.join('Descriptor(s):')
+    const title = account.name
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -236,8 +231,6 @@ export default function ExportDescriptors() {
               font-size: 24px;
               font-weight: bold;
               margin-bottom: 30px;
-              border-bottom: 3px solid #000;
-              padding-bottom: 15px;
             }
             
             .qr-section {
@@ -254,25 +247,6 @@ export default function ExportDescriptors() {
               display: block;
             }
             
-            .qr-info {
-              margin-top: 15px;
-              font-size: 14px;
-              color: #666;
-              font-style: italic;
-            }
-            
-            .descriptor-section {
-              margin-top: 40px;
-              page-break-inside: avoid;
-            }
-            
-            .descriptor-title {
-              font-size: 18px;
-              font-weight: bold;
-              margin-bottom: 15px;
-              color: #333;
-            }
-            
             .descriptor-text {
               font-family: 'Courier New', monospace;
               font-size: 11px;
@@ -280,85 +254,12 @@ export default function ExportDescriptors() {
               background-color: #f8f8f8;
               padding: 20px;
               border: 1px solid #ddd;
-              border-left: 4px solid #007ACC;
-              margin: 15px 0;
-              line-height: 1.6;
-            }
-            
-            .info-section {
-              margin-top: 30px;
-              background-color: #f0f8ff;
-              padding: 15px;
-              border-radius: 5px;
-              border: 1px solid #ccc;
-            }
-            
-            .info-title {
-              font-weight: bold;
-              margin-bottom: 10px;
-              color: #333;
-            }
-            
-            .info-list {
-              font-size: 12px;
-              line-height: 1.5;
-              margin: 5px 0;
-            }
-            
-            .footer {
-              margin-top: 40px;
-              text-align: center;
-              font-size: 12px;
-              color: #666;
-              border-top: 1px solid #ccc;
-              padding-top: 20px;
-            }
-            
-            .metadata {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 20px;
-              font-size: 12px;
-              color: #666;
-            }
-            .key-details {
-              font-family: 'Courier New', monospace;
-              font-size: 12px;
-              background-color: #f8f8f8;
-              padding: 15px;
-              border: 1px solid #ddd;
-              margin-bottom: 20px;
-              white-space: pre;
-            }
-            .descriptor-section {
-              margin-top: 20px;
-              page-break-inside: avoid;
-            }
-            .descriptor-title {
-              font-size: 18px;
-              font-weight: bold;
-              margin-bottom: 10px;
-              color: #333;
-            }
-            .descriptor-text {
-              font-family: 'Courier New', monospace;
-              font-size: 11px;
-              word-break: break-all;
-              background-color: #f8f8f8;
-              padding: 20px;
-              border: 1px solid #ddd;
-              border-left: 4px solid #007ACC;
               margin: 15px 0;
               line-height: 1.6;
             }
           </style>
         </head>
         <body>
-          <div class="metadata">
-            <span>Account: ${account.name}</span>
-            <span>Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</span>
-          </div>
-          
           <div class="header">${title}</div>
           
           ${
@@ -366,33 +267,12 @@ export default function ExportDescriptors() {
               ? `
           <div class="qr-section">
             <img src="${qrDataURL}" class="qr-code" alt="QR Code for descriptor" />
-            <div class="qr-info">Scan QR code to import this descriptor</div>
           </div>
           `
               : ''
           }
           
-          <div class="key-details">${keyDetailsSection.trim()}</div>
-          <div class="descriptor-section">
-            <div class="descriptor-title">Descriptor(s):</div>
-            <div class="descriptor-text">${descriptorSection.trim()}</div>
-          </div>
-          
-          <div class="info-section">
-            <div class="info-title">Instructions:</div>
-            <div class="info-list">
-              • This descriptor defines how to derive addresses and keys for your wallet<br>
-              • You can import this descriptor into compatible Bitcoin wallet software<br>
-              • Keep this document secure as it contains your wallet's public information<br>
-              • For multisig wallets, you'll need all co-signers' descriptors<br>
-              • The QR code above contains the same descriptor data for easy scanning
-            </div>
-          </div>
-          
-          <div class="footer">
-            <strong>Generated by SatSigner</strong><br>
-            Secure Bitcoin Wallet Management
-          </div>
+          <div class="descriptor-text">${exportContent}</div>
         </body>
       </html>
     `
