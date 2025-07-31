@@ -55,12 +55,17 @@ export default function SSUnifiedImport({
   const [alarm, setAlarm] = useState('')
   const [scriptType, setScriptType] = useState<string | null>(null)
 
-  function handleExternalDescriptorChange(text: string) {
+  async function handleExternalDescriptorChange(text: string) {
     setExternalDescriptor(text)
     setAlarm('')
     if (showScriptType && text) {
-      const validation = validateDescriptorWithScriptType(text)
-      setScriptType(validation.scriptType || null)
+      try {
+        const validation = await validateDescriptorWithScriptType(text)
+        setScriptType(validation.scriptType || null)
+      } catch (error) {
+        console.log('Error validating descriptor script type:', error)
+        setScriptType(null)
+      }
     }
   }
 
@@ -118,22 +123,44 @@ export default function SSUnifiedImport({
   }
 
   async function handleConfirm() {
+    console.log(
+      'SSUnifiedImport handleConfirm called with importType:',
+      importType
+    )
     if (importType === 'descriptor') {
-      if (!validateDescriptor(externalDescriptor, scriptVersion, network)) {
-        setAlarm(t('watchonly.importDescriptor.invalid'))
-        return
-      }
-      if (
-        internalDescriptor &&
-        !validateDescriptor(internalDescriptor, scriptVersion, network)
-      ) {
-        setAlarm(t('watchonly.importDescriptor.invalid'))
-        return
-      }
-      await onConfirm({
+      console.log('Validating external descriptor:', externalDescriptor)
+      const externalValid = await validateDescriptor(
         externalDescriptor,
-        internalDescriptor: internalDescriptor || undefined
-      })
+        scriptVersion,
+        network
+      )
+      if (!externalValid) {
+        console.log('External descriptor validation failed')
+        setAlarm(t('watchonly.importDescriptor.invalid'))
+        return
+      }
+      if (internalDescriptor) {
+        const internalValid = await validateDescriptor(
+          internalDescriptor,
+          scriptVersion,
+          network
+        )
+        if (!internalValid) {
+          console.log('Internal descriptor validation failed')
+          setAlarm(t('watchonly.importDescriptor.invalid'))
+          return
+        }
+      }
+      console.log('Calling onConfirm with descriptor data')
+      try {
+        await onConfirm({
+          externalDescriptor,
+          internalDescriptor: internalDescriptor || undefined
+        })
+      } catch (error) {
+        console.error('Error in onConfirm callback:', error)
+        setAlarm('Error processing descriptor')
+      }
     } else if (importType === 'extendedPub') {
       if (!validateExtendedKey(xpub, scriptVersion, network)) {
         setAlarm('Invalid XPUB/YPUB/ZPUB/VPUB')
@@ -143,7 +170,12 @@ export default function SSUnifiedImport({
         setAlarm('Invalid fingerprint')
         return
       }
-      await onConfirm({ xpub, fingerprint })
+      try {
+        await onConfirm({ xpub, fingerprint })
+      } catch (error) {
+        console.error('Error in onConfirm callback:', error)
+        setAlarm('Error processing extended public key')
+      }
     } else if (importType === 'address') {
       const addresses = addressInput
         .split('\n')
@@ -165,7 +197,12 @@ export default function SSUnifiedImport({
 
       // If multiple addresses not allowed, only use the first one
       const finalAddresses = allowMultiple ? addresses : [addresses[0]]
-      await onConfirm({ addresses: finalAddresses })
+      try {
+        await onConfirm({ addresses: finalAddresses })
+      } catch (error) {
+        console.error('Error in onConfirm callback:', error)
+        setAlarm('Error processing addresses')
+      }
     }
   }
 

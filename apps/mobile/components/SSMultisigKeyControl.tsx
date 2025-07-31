@@ -71,8 +71,8 @@ function SSMultisigKeyControl({
     } else if (keyDetails.creationType === 'importDescriptor') {
       return t('account.seed.external')
     } else if (keyDetails.creationType === 'importExtendedPub') {
-      // Show the correct label according to the selected script version
-      switch (keyDetails.scriptVersion) {
+      // Show the correct label according to the global script version
+      switch (scriptVersion) {
         case 'P2PKH':
           return t('account.import.xpub')
         case 'P2SH-P2WPKH':
@@ -89,7 +89,7 @@ function SSMultisigKeyControl({
 
   // Always use the global scriptVersion from the store
   function getImportExtendedLabel() {
-    switch (keyDetails?.scriptVersion) {
+    switch (scriptVersion) {
       case 'P2PKH':
         return t('account.import.xpub')
       case 'P2SH-P2WPKH':

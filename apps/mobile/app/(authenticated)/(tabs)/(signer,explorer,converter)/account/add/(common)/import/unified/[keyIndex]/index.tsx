@@ -4,7 +4,11 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { extractExtendedKeyFromDescriptor, parseDescriptor } from '@/api/bdk'
+import {
+  extractExtendedKeyFromDescriptor,
+  parseDescriptor,
+  convertExtendedKeyPrefix
+} from '@/api/bdk'
 import SSUnifiedImport from '@/components/SSUnifiedImport'
 import SSText from '@/components/SSText'
 import SSMainLayout from '@/layouts/SSMainLayout'
@@ -62,28 +66,49 @@ export default function UnifiedImport() {
     setAlarm('')
     try {
       if (importType === 'descriptor') {
-        if (!validateDescriptor(data.externalDescriptor)) {
+        const descriptorValid = await validateDescriptor(
+          data.externalDescriptor,
+          scriptVersion,
+          network
+        )
+        if (!descriptorValid) {
           setAlarm(t('watchonly.importDescriptor.invalid'))
           setLoading(false)
           return
         }
+        console.log('Creating descriptor from:', data.externalDescriptor)
         const descriptor = await new Descriptor().create(
           data.externalDescriptor,
           network as Network
         )
+        console.log('Descriptor created successfully')
+
         const { fingerprint, derivationPath } =
           await parseDescriptor(descriptor)
-        const extendedKey = await extractExtendedKeyFromDescriptor(descriptor)
+        console.log('Parsed descriptor:', { fingerprint, derivationPath })
 
+        const rawExtendedKey =
+          await extractExtendedKeyFromDescriptor(descriptor)
+        console.log('Raw extended key:', rawExtendedKey)
+
+        const convertedExtendedKey = await convertExtendedKeyPrefix(
+          rawExtendedKey,
+          scriptVersion,
+          network as Network
+        )
+        console.log('Converted extended key:', convertedExtendedKey)
+
+        // For imported descriptors, use them as-is without conversion
+        // The conversion should only happen for descriptors generated from seed
         setExternalDescriptor(data.externalDescriptor)
-        setExtendedPublicKey(extendedKey)
+        setExtendedPublicKey(convertedExtendedKey)
         setFingerprint(fingerprint)
         setKeyDerivationPath(Number(keyIndex), derivationPath)
         setKey(Number(keyIndex))
         updateKeyFingerprint(Number(keyIndex), fingerprint)
         setKeyDerivationPath(Number(keyIndex), derivationPath)
         updateKeySecret(Number(keyIndex), {
-          extendedPublicKey: extendedKey,
+          extendedPublicKey: convertedExtendedKey,
           fingerprint,
           derivationPath
         })
@@ -96,9 +121,14 @@ export default function UnifiedImport() {
             data.internalDescriptor,
             network as Network
           )
-          const internalExtendedKey =
+          const rawInternalExtendedKey =
             await extractExtendedKeyFromDescriptor(internalDesc)
-          setInternalExtendedPublicKey(internalExtendedKey)
+          const convertedInternalExtendedKey = await convertExtendedKeyPrefix(
+            rawInternalExtendedKey,
+            scriptVersion,
+            network as Network
+          )
+          setInternalExtendedPublicKey(convertedInternalExtendedKey)
         }
       } else if (importType === 'extendedPub') {
         setExtendedPublicKey(data.xpub)
@@ -124,6 +154,7 @@ export default function UnifiedImport() {
       setLoading(false)
       router.dismiss(1)
     } catch (e) {
+      console.error('Error in handleConfirm:', e)
       setAlarm(
         e instanceof Error ? e.message : t('watchonly.importDescriptor.invalid')
       )

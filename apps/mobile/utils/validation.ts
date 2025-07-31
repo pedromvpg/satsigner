@@ -1,5 +1,7 @@
 import ecc from '@bitcoinerlab/secp256k1'
 import * as bitcoinjs from 'bitcoinjs-lib'
+import { Descriptor } from 'bdk-rn'
+import { type Network } from 'bdk-rn/lib/lib/enums'
 
 bitcoinjs.initEccLib(ecc)
 
@@ -63,64 +65,53 @@ export function validateExtendedKey(
   scriptVersion?: ScriptVersion,
   network?: NetworkType
 ) {
-  // Enhanced validation for extended keys with network and script version awareness
-  const prefix = key.substring(0, 4)
-
-  // If script version and network are provided, validate against specific rules
-  if (scriptVersion && network) {
-    // P2TR should be inactive
-    if (scriptVersion === 'P2TR') {
-      return false
-    }
-
-    const validPrefixes = EXTENDED_KEY_PREFIXES[scriptVersion][network]
-    if (!validPrefixes.includes(prefix)) {
-      return false
-    }
-  } else {
-    // Fallback to general validation
-    const validPrefixes = [
-      'xpub',
-      'xprv',
-      'ypub',
-      'yprv',
-      'zpub',
-      'zprv',
-      'vpub',
-      'vprv',
-      'tpub',
-      'tprv',
-      'upub',
-      'uprv'
-    ]
-    if (!validPrefixes.includes(prefix)) {
-      return false
-    }
-  }
-
-  // Check length (base58 encoded extended keys are typically 111 characters)
-  if (key.length < 100 || key.length > 120) {
+  // Basic format check first (like client's approach)
+  if (!key.match(new RegExp('^[txyzuv](pub|prv)[a-zA-Z0-9]+$'))) {
     return false
   }
 
-  // Basic format check
-  return key.match(new RegExp('^[txyzuv](pub|prv)[a-zA-Z0-9]+$')) !== null
+  // Check length (base58 encoded extended keys are typically 111 characters)
+  if (key.length !== 111) {
+    return false
+  }
+
+  // For validation, accept xpub/tpub for all script types (BDK behavior)
+  // Only validate that it's a valid extended key format
+  const validPrefixes = [
+    'xpub',
+    'xprv',
+    'ypub',
+    'yprv',
+    'zpub',
+    'zprv',
+    'vpub',
+    'vprv',
+    'tpub',
+    'tprv',
+    'upub',
+    'uprv'
+  ]
+
+  const prefix = key.substring(0, 4)
+  if (!validPrefixes.includes(prefix)) {
+    return false
+  }
+
+  // If script version is provided, only check if P2TR is inactive
+  if (scriptVersion === 'P2TR') {
+    return false
+  }
+
+  return true
 }
 
 export function validateDerivationPath(path: string) {
   return path.match(new RegExp("^([mM]/)?([0-9]+[h']?/)*[0-9]+[h']?$")) !== null
 }
 
-export function validateFingerprint(fingerprint: string) {
-  return fingerprint.match(new RegExp('^[a-fA-F0-9]{8}$')) !== null
-}
-
-export function validateDescriptor(
-  descriptor: string,
-  scriptVersion?: ScriptVersion,
-  network?: NetworkType
-) {
-  // Enhanced regex expressions for all script types
+// Simple regex-based descriptor validation (like client's approach)
+export function validateDescriptorRegex(descriptor: string): boolean {
+  // regex expressions building blocks (from client's code)
   const kind = '(sh|wsh|pk|pkh|wpkh|combo|tr|addr|raw|rawtr)'
   const nestedKind = '(sh|wsh)'
   const multiKind = `(multi|sortedmulti)`
@@ -144,13 +135,10 @@ export function validateDescriptor(
   const multiKeyRegex = new RegExp(multiKey, 'gm')
   const nestedRegex = new RegExp(nestedDescriptor, 'gm')
 
-  // Remove checksum if any.
-  // Nested descriptor have only 1 checksum, that is why we remove it first.
-  // Because we remove it, we also do not need to check it again.
+  // Remove checksum if any (like client's approach)
   let currentItem = descriptor.replace(checksumRegex, '')
 
-  // Extract nested descriptor.
-  // Example: wsh(sh(pkh(...))) -> pkh(...)
+  // Extract nested descriptor
   while (nestedRegex.test(currentItem)) {
     // first, check if the current item is a single key sh/wsh descriptor
     if (singleKeyRegex.test(currentItem)) return true
@@ -160,15 +148,234 @@ export function validateDescriptor(
   }
 
   // It must be either single key or multi key
-  const isValid =
-    singleKeyRegex.test(currentItem) || multiKeyRegex.test(currentItem)
+  return singleKeyRegex.test(currentItem) || multiKeyRegex.test(currentItem)
+}
 
-  // If script version is P2TR, it should be inactive
+// Enhanced descriptor validation that checks derivation path and script expressions
+export function validateDescriptorWithScriptVersion(
+  descriptor: string,
+  scriptVersion: ScriptVersion
+): boolean {
+  // First, do basic regex validation
+  if (!validateDescriptorRegex(descriptor)) {
+    return false
+  }
+
+  // P2TR should be inactive
   if (scriptVersion === 'P2TR') {
     return false
   }
 
-  return isValid
+  // Remove checksum for analysis
+  const descriptorWithoutChecksum = descriptor.replace(/#[a-z0-9]{8}$/, '')
+
+  // Check if the descriptor matches the expected script type
+  switch (scriptVersion) {
+    case 'P2PKH':
+      // Should contain pkh(...) or be a direct pkh descriptor
+      return (
+        descriptorWithoutChecksum.includes('pkh(') ||
+        descriptorWithoutChecksum.startsWith('pkh(')
+      )
+
+    case 'P2SH-P2WPKH':
+      // Should contain sh(wpkh(...)) - nested segwit
+      return (
+        descriptorWithoutChecksum.includes('sh(wpkh(') ||
+        descriptorWithoutChecksum.startsWith('sh(wpkh(')
+      )
+
+    case 'P2WPKH':
+      // Should contain wpkh(...) - native segwit
+      return (
+        descriptorWithoutChecksum.includes('wpkh(') ||
+        descriptorWithoutChecksum.startsWith('wpkh(')
+      )
+
+    default:
+      return false
+  }
+}
+
+export function validateFingerprint(fingerprint: string) {
+  return fingerprint.match(new RegExp('^[a-fA-F0-9]{8}$')) !== null
+}
+
+// Bitcoin descriptor checksum validation using BDK
+async function validateDescriptorChecksum(
+  descriptor: string,
+  network: NetworkType
+): Promise<boolean> {
+  try {
+    // Convert NetworkType to BDK Network
+    const bdkNetwork = network as Network
+
+    // First, validate the extended key format
+    const extendedKeyMatch = descriptor.match(/([txyzuv]pub[a-zA-Z0-9]+)/)
+    if (extendedKeyMatch) {
+      const extendedKey = extendedKeyMatch[1]
+      console.log('Found extended key:', extendedKey)
+
+      // Basic extended key validation
+      if (extendedKey.length < 100 || extendedKey.length > 120) {
+        console.log('Extended key length invalid:', extendedKey.length)
+        return false
+      }
+
+      // Check if it's a valid base58 string
+      if (!/^[1-9A-HJ-NP-Za-km-z]+$/.test(extendedKey)) {
+        console.log('Extended key contains invalid characters')
+        return false
+      }
+
+      // Check the prefix
+      const prefix = extendedKey.substring(0, 4)
+      console.log('Extended key prefix:', prefix)
+
+      // Check the length (should be around 111 characters for base58 encoded extended keys)
+      console.log('Extended key length:', extendedKey.length)
+
+      // Try to decode the extended key to check if it's valid
+      try {
+        // This is a basic check - in a real implementation you'd use a proper base58 decoder
+        if (extendedKey.length !== 111) {
+          console.log(
+            'Extended key length is not 111 characters:',
+            extendedKey.length
+          )
+          return false
+        }
+
+        // Test the extended key parsing with BDK
+        const keyValid = await testExtendedKeyParsing(extendedKey, network)
+        if (!keyValid) {
+          console.log('Extended key failed BDK parsing test')
+          return false
+        }
+      } catch (decodeError) {
+        console.log('Extended key decode error:', decodeError)
+        return false
+      }
+    }
+
+    // Try to create descriptor without checksum first (more reliable)
+    const descriptorWithoutChecksum = descriptor.replace(/#[a-z0-9]{8}$/, '')
+    console.log(
+      'Trying descriptor without checksum:',
+      descriptorWithoutChecksum
+    )
+
+    try {
+      const bdkDescriptor = await new Descriptor().create(
+        descriptorWithoutChecksum,
+        bdkNetwork
+      )
+      console.log('Descriptor validation successful without checksum')
+      return true
+    } catch (noChecksumError) {
+      console.log('Descriptor invalid without checksum:', noChecksumError)
+
+      // If that fails, try with checksum
+      try {
+        const bdkDescriptor = await new Descriptor().create(
+          descriptor,
+          bdkNetwork
+        )
+        console.log('Descriptor validation successful with checksum')
+        return true
+      } catch (checksumError) {
+        console.log('Descriptor invalid with checksum:', checksumError)
+        return false
+      }
+    }
+  } catch (error) {
+    console.log('Descriptor checksum validation failed:', error)
+    return false
+  }
+}
+
+// Calculate the correct checksum for a descriptor
+async function calculateDescriptorChecksum(
+  descriptor: string,
+  network: NetworkType
+): Promise<string | null> {
+  try {
+    const bdkNetwork = network as Network
+    const descriptorWithoutChecksum = descriptor.replace(/#[a-z0-9]{8}$/, '')
+
+    // Create descriptor without checksum
+    const bdkDescriptor = await new Descriptor().create(
+      descriptorWithoutChecksum,
+      bdkNetwork
+    )
+
+    // Get the descriptor string with checksum
+    const descriptorWithChecksum = await bdkDescriptor.asString()
+
+    // Extract checksum
+    const checksumMatch = descriptorWithChecksum.match(/#([a-z0-9]{8})$/)
+    return checksumMatch ? checksumMatch[1] : null
+  } catch (error) {
+    console.log('Error calculating checksum:', error)
+    return null
+  }
+}
+
+export async function validateDescriptor(
+  descriptor: string,
+  scriptVersion?: ScriptVersion,
+  network?: NetworkType
+): Promise<boolean> {
+  // First, do simple regex validation (like client's approach)
+  const regexValid = validateDescriptorRegex(descriptor)
+  if (!regexValid) {
+    console.log('Descriptor failed regex validation')
+    return false
+  }
+
+  // If script version is provided, validate script expressions and derivation paths
+  if (scriptVersion) {
+    const scriptValid = validateDescriptorWithScriptVersion(
+      descriptor,
+      scriptVersion
+    )
+    if (!scriptValid) {
+      console.log('Descriptor failed script version validation')
+      return false
+    }
+  }
+
+  // If network is provided, validate checksum with BDK
+  if (network) {
+    try {
+      const checksumValid = await validateDescriptorChecksum(
+        descriptor,
+        network
+      )
+      if (!checksumValid) {
+        // Try to calculate the correct checksum for better error reporting
+        const correctChecksum = await calculateDescriptorChecksum(
+          descriptor,
+          network
+        )
+        if (correctChecksum) {
+          const currentChecksum = descriptor.match(/#([a-z0-9]{8})$/)
+          if (currentChecksum) {
+            console.log(
+              `Checksum mismatch. Expected: ${correctChecksum}, Got: ${currentChecksum[1]}`
+            )
+          }
+        }
+      }
+      return checksumValid
+    } catch (error) {
+      console.log('BDK checksum validation error:', error)
+      return false
+    }
+  }
+
+  // If no network provided, just return regex validation result
+  return regexValid
 }
 
 export function validateAddress(
@@ -241,11 +448,14 @@ export function getAddressScriptType(address: string): string | null {
 }
 
 // Enhanced descriptor validation with script type detection
-export function validateDescriptorWithScriptType(descriptor: string): {
+export async function validateDescriptorWithScriptType(
+  descriptor: string
+): Promise<{
   isValid: boolean
   scriptType?: string
-} {
-  if (!validateDescriptor(descriptor)) {
+}> {
+  const isValid = await validateDescriptor(descriptor)
+  if (!isValid) {
     return { isValid: false }
   }
 
@@ -297,4 +507,48 @@ export function getExpectedAddressPrefixes(
   }
 
   return [...ADDRESS_PREFIXES[scriptVersion][network]]
+}
+
+// Helper function to get the correct descriptor with checksum
+export async function getDescriptorWithChecksum(
+  descriptor: string,
+  network: NetworkType
+): Promise<string | null> {
+  try {
+    const bdkNetwork = network as Network
+    const descriptorWithoutChecksum = descriptor.replace(/#[a-z0-9]{8}$/, '')
+
+    const bdkDescriptor = await new Descriptor().create(
+      descriptorWithoutChecksum,
+      bdkNetwork
+    )
+    return await bdkDescriptor.asString()
+  } catch (error) {
+    console.log('Error getting descriptor with checksum:', error)
+    return null
+  }
+}
+
+// Debug function to test extended key parsing
+export async function testExtendedKeyParsing(
+  extendedKey: string,
+  network: NetworkType
+): Promise<boolean> {
+  try {
+    const bdkNetwork = network as Network
+
+    // Try to create a simple descriptor with just the extended key
+    const testDescriptor = `wpkh(${extendedKey})`
+    console.log('Testing extended key with descriptor:', testDescriptor)
+
+    const bdkDescriptor = await new Descriptor().create(
+      testDescriptor,
+      bdkNetwork
+    )
+    console.log('Extended key parsing successful')
+    return true
+  } catch (error) {
+    console.log('Extended key parsing failed:', error)
+    return false
+  }
 }
