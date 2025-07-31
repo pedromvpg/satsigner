@@ -7,7 +7,7 @@ import SSTextInput from './SSTextInput'
 import SSFormLayout from '@/layouts/SSFormLayout'
 import SSVStack from '@/layouts/SSVStack'
 import { t } from '@/locales'
-import { validateDescriptor } from '@/utils/validation'
+import { validateDescriptorSync } from '@/utils/validation'
 
 export type SSDescriptorImportProps = {
   onConfirm: (external: string, internal?: string) => Promise<void> | void
@@ -59,11 +59,11 @@ export default function SSDescriptorImport({
   }
 
   async function handleConfirm() {
-    if (!validateDescriptor(externalDescriptor)) {
+    if (!validateDescriptorSync(externalDescriptor)) {
       setAlarm(t('watchonly.importDescriptor.invalid'))
       return
     }
-    if (internalDescriptor && !validateDescriptor(internalDescriptor)) {
+    if (internalDescriptor && !validateDescriptorSync(internalDescriptor)) {
       setAlarm(t('watchonly.importDescriptor.invalid'))
       return
     }

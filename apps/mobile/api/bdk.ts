@@ -349,7 +349,6 @@ async function getDescriptor(
     passphrase
   )
 
-  console.log('descriptorSecretKey', descriptorSecretKey)
   switch (scriptVersion) {
     case 'P2PKH':
       return new Descriptor().newBip44(descriptorSecretKey, kind, network)

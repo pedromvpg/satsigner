@@ -321,13 +321,18 @@ async function calculateDescriptorChecksum(
   }
 }
 
+export function validateDescriptorSync(descriptor: string): boolean {
+  // Only do simple regex validation (like client's approach)
+  return validateDescriptorRegex(descriptor)
+}
+
 export async function validateDescriptor(
   descriptor: string,
   scriptVersion?: ScriptVersion,
   network?: NetworkType
 ): Promise<boolean> {
   // First, do simple regex validation (like client's approach)
-  const regexValid = validateDescriptorRegex(descriptor)
+  const regexValid = validateDescriptorSync(descriptor)
   if (!regexValid) {
     console.log('Descriptor failed regex validation')
     return false
