@@ -15,6 +15,7 @@ import SSVStack from '@/layouts/SSVStack'
 import { t } from '@/locales'
 import { getItem } from '@/storage/encrypted'
 import { useAccountsStore } from '@/store/accounts'
+import { useAuthStore } from '@/store/auth'
 import { useBlockchainStore } from '@/store/blockchain'
 import { Colors } from '@/styles'
 import { type Secret } from '@/types/models/Account'
@@ -32,6 +33,7 @@ export default function DescriptorPage() {
     state.accounts.find((_account) => _account.id === accountId)
   )
   const network = useBlockchainStore((state) => state.selectedNetwork)
+  const skipPin = useAuthStore((state) => state.skipPin)
 
   const [descriptor, setDescriptor] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -95,8 +97,6 @@ export default function DescriptorPage() {
       if (!account || !keyIndex) return
 
       setIsLoading(true)
-      const pin = await getItem(PIN_KEY)
-      if (!pin) return
 
       try {
         const keyIndexNum = parseInt(keyIndex, 10)
@@ -113,15 +113,24 @@ export default function DescriptorPage() {
 
         // Decrypt the key's secret
         let decryptedSecret: Secret
-        if (typeof key.secret === 'string') {
-          const decryptedSecretString = await aesDecrypt(
-            key.secret,
-            pin,
-            key.iv
-          )
-          decryptedSecret = JSON.parse(decryptedSecretString) as Secret
-        } else {
+        if (skipPin) {
+          // When PIN is disabled, secrets might already be decrypted objects
           decryptedSecret = key.secret as Secret
+        } else {
+          // When PIN is enabled, decrypt the secrets
+          const pin = await getItem(PIN_KEY)
+          if (!pin) return
+
+          if (typeof key.secret === 'string') {
+            const decryptedSecretString = await aesDecrypt(
+              key.secret,
+              pin,
+              key.iv
+            )
+            decryptedSecret = JSON.parse(decryptedSecretString) as Secret
+          } else {
+            decryptedSecret = key.secret as Secret
+          }
         }
 
         // Generate descriptor based on creation type

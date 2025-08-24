@@ -17,7 +17,7 @@ import SSSeedQR from '@/components/SSSeedQR'
 import SSSelectModal from '@/components/SSSelectModal'
 import SSText from '@/components/SSText'
 import SSTextInput from '@/components/SSTextInput'
-import { PIN_KEY, SALT_KEY } from '@/config/auth'
+import { PIN_KEY, SALT_KEY, DEFAULT_PIN } from '@/config/auth'
 import SSFormLayout from '@/layouts/SSFormLayout'
 import SSHStack from '@/layouts/SSHStack'
 import SSSeedLayout from '@/layouts/SSSeedLayout'
@@ -85,17 +85,62 @@ export default function AccountSettings() {
   }
 
   function handleOnViewMnemonic() {
-    if (skipPin) {
+    // If we already have the mnemonic loaded, show it directly
+    if (localMnemonic && localMnemonic.length > 0) {
       setMnemonicModalVisible(true)
-    } else {
-      setPin(Array(4).fill(''))
-      setShowPinEntry(true)
+      return
     }
+
+    // Check if PIN is actually set
+    const checkPinStatus = async () => {
+      const storedPin = await getItem(PIN_KEY)
+      const salt = await getItem(SALT_KEY)
+
+      // Check if secret is already an object (no decryption needed)
+      if (account && typeof account.keys[0].secret === 'object') {
+        const accountSecret = account.keys[0].secret as Secret
+        if (accountSecret && accountSecret.mnemonic) {
+          setLocalMnemonic(String(accountSecret.mnemonic))
+          setMnemonicModalVisible(true)
+          return
+        }
+      }
+
+      // If no PIN is actually stored, we should be able to access mnemonic directly
+      if (!storedPin) {
+        setMnemonicModalVisible(true)
+        return
+      }
+
+      // Try default PIN automatically (for users who chose "Set Pin Later")
+      if (storedPin) {
+        try {
+          await handlePinEntry(DEFAULT_PIN)
+          return
+        } catch (error) {
+          // Default PIN failed, fall through to manual entry
+        }
+      }
+
+      if (skipPin) {
+        setMnemonicModalVisible(true)
+      } else {
+        setPin(Array(4).fill(''))
+        setShowPinEntry(true)
+      }
+    }
+
+    checkPinStatus()
   }
 
   function handleOnSelectScriptVersion() {
     setScriptVersion(scriptVersion)
     setScriptVersionModalVisible(false)
+  }
+
+  function handleOnSelectNetwork() {
+    setNetwork(network)
+    setNetworkModalVisible(false)
   }
 
   async function handlePinEntry(pinString: string) {
@@ -125,56 +170,114 @@ export default function AccountSettings() {
 
   useEffect(() => {
     async function getMnemonic() {
-      const pin = await getItem(PIN_KEY)
-      if (!account || !pin) return
+      if (!account) return
 
-      const iv = account.keys[0].iv
-      const encryptedSecret = account.keys[0].secret as string
+      try {
+        if (skipPin) {
+          // When PIN is disabled, secrets might already be decrypted objects
+          const accountSecret = account.keys[0].secret as Secret
 
-      const accountSecretString = await aesDecrypt(encryptedSecret, pin, iv)
-      const accountSecret = JSON.parse(accountSecretString) as Secret
+          if (
+            accountSecret &&
+            typeof accountSecret === 'object' &&
+            accountSecret.mnemonic
+          ) {
+            setLocalMnemonic(String(accountSecret.mnemonic))
+          }
+        } else {
+          // Check if secret is already an object (decrypted)
+          if (typeof account.keys[0].secret === 'object') {
+            const accountSecret = account.keys[0].secret as Secret
+            if (accountSecret && accountSecret.mnemonic) {
+              setLocalMnemonic(String(accountSecret.mnemonic))
+            }
+            return
+          }
 
-      setLocalMnemonic(accountSecret.mnemonic || '')
+          // Original logic for when PIN is enabled and secret is encrypted
+          const pin = await getItem(PIN_KEY)
+          if (!pin) return
+
+          if (
+            typeof account.keys[0].secret === 'string' &&
+            typeof account.keys[0].iv === 'string'
+          ) {
+            const accountSecretString = await aesDecrypt(
+              account.keys[0].secret,
+              pin,
+              account.keys[0].iv
+            )
+            const accountSecret = JSON.parse(accountSecretString) as Secret
+
+            if (accountSecret && accountSecret.mnemonic) {
+              setLocalMnemonic(String(accountSecret.mnemonic))
+            }
+          }
+        }
+      } catch (error) {
+        // Handle error silently
+      }
     }
     getMnemonic()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [account, skipPin])
 
   useEffect(() => {
     async function decryptKeys() {
-      const pin = await getItem(PIN_KEY)
-      if (!account || !pin) return
+      if (!account) return
 
       try {
-        const decryptedKeysData = await Promise.all(
-          account.keys.map(async (key) => {
-            if (typeof key.secret === 'string') {
-              // Decrypt the key's secret
-              const decryptedSecretString = await aesDecrypt(
-                key.secret,
-                pin,
-                key.iv
-              )
-              const decryptedSecret = JSON.parse(
-                decryptedSecretString
-              ) as Secret
+        if (skipPin) {
+          // When PIN is disabled, secrets might already be decrypted objects
+          // Create a safe copy without passing complex objects
+          const safeKeys = account.keys.map((key) => ({
+            ...key,
+            secret: typeof key.secret === 'object' ? key.secret : {}
+          }))
+          setDecryptedKeys(safeKeys)
+        } else {
+          // Original logic for when PIN is enabled
+          const pin = await getItem(PIN_KEY)
+          if (!pin) return
 
-              return {
-                ...key,
-                secret: decryptedSecret
+          // Process keys one by one to avoid passing complex data
+          const safeDecryptedKeys: Key[] = []
+
+          for (let i = 0; i < account.keys.length; i++) {
+            const key = account.keys[i]
+
+            if (typeof key.secret === 'string' && typeof key.iv === 'string') {
+              try {
+                const decryptedSecretString = await aesDecrypt(
+                  key.secret,
+                  pin,
+                  key.iv
+                )
+                const decryptedSecret = JSON.parse(
+                  decryptedSecretString
+                ) as Secret
+
+                safeDecryptedKeys.push({
+                  ...key,
+                  secret: decryptedSecret
+                })
+              } catch {
+                // If decryption fails, keep original key
+                safeDecryptedKeys.push(key)
               }
             } else {
-              return key
+              // If already decrypted, keep as is
+              safeDecryptedKeys.push(key)
             }
-          })
-        )
+          }
 
-        setDecryptedKeys(decryptedKeysData)
-      } catch (_error) {
+          setDecryptedKeys(safeDecryptedKeys)
+        }
+      } catch (error) {
         // Handle error silently
       }
     }
     decryptKeys()
-  }, [account])
+  }, [account, skipPin])
 
   // Update network when account changes
   useEffect(() => {
@@ -214,6 +317,7 @@ export default function AccountSettings() {
         <SSText center uppercase color="muted">
           {t('account.settings.title')}
         </SSText>
+
         <SSVStack itemsCenter gap="none">
           <SSHStack gap="sm">
             <SSText color="muted">{t('account.fingerprint')}</SSText>

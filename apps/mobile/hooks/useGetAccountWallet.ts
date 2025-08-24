@@ -15,8 +15,11 @@ const useGetAccountWallet = (id: Account['id']) => {
     useShallow((state) => [state.wallets[id], state.addAccountWallet])
   )
 
-  const account = useAccountsStore((state) =>
-    state.accounts.find((a) => a.id === id)
+  const [account, updateAccount] = useAccountsStore(
+    useShallow((state) => [
+      state.accounts.find((a) => a.id === id),
+      state.updateAccount
+    ])
   )
 
   async function addWallet() {
@@ -26,11 +29,6 @@ const useGetAccountWallet = (id: Account['id']) => {
         account.keys.length === 0 ||
         account.keys[0].creationType === 'importAddress'
       ) {
-        console.log('Skipping wallet creation:', {
-          hasAccount: !!account,
-          keyCount: account?.keys.length || 0,
-          isImportAddress: account?.keys[0]?.creationType === 'importAddress'
-        })
         return
       }
 
@@ -39,7 +37,6 @@ const useGetAccountWallet = (id: Account['id']) => {
       const pin = await getItem(PIN_KEY)
 
       if (!pin) {
-        console.error('PIN not found for decryption')
         return
       }
 
@@ -55,12 +52,6 @@ const useGetAccountWallet = (id: Account['id']) => {
             const decryptedSecret = JSON.parse(decryptedSecretString) as Secret
             key.secret = decryptedSecret
           } catch (decryptError) {
-            console.error('Failed to decrypt key secret:', {
-              keyIndex: temporaryAccount.keys.indexOf(key),
-              error: decryptError,
-              hasIv: !!key.iv,
-              secretType: typeof key.secret
-            })
             throw new Error(`Failed to decrypt key secret: ${decryptError}`)
           }
         }
@@ -71,8 +62,14 @@ const useGetAccountWallet = (id: Account['id']) => {
         account.network as Network
       )
       if (!walletData) {
-        console.error('getWalletData returned undefined')
         return
+      }
+
+      // Update account with fingerprint if it's not already set
+      if (walletData.fingerprint && !account.keys[0].fingerprint) {
+        const updatedAccount = { ...account }
+        updatedAccount.keys[0].fingerprint = walletData.fingerprint
+        await updateAccount(updatedAccount)
       }
 
       addAccountWallet(id, walletData.wallet)

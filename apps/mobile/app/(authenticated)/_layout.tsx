@@ -124,6 +124,17 @@ export default function AuthenticatedLayout() {
               )
             )
 
+          // Update account with fingerprint if it's not already set
+          if (
+            walletData &&
+            walletData.fingerprint &&
+            !account.keys[0].fingerprint
+          ) {
+            const updatedAccount = { ...account }
+            updatedAccount.keys[0].fingerprint = walletData.fingerprint
+            updateAccount(updatedAccount)
+          }
+
           const updatedAccount = !isImportAddress
             ? await syncAccountWithWallet(account, walletData!.wallet)
             : await syncAccountWithAddress(account)

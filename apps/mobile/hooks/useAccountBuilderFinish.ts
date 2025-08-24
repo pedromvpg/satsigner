@@ -73,18 +73,27 @@ function useAccountBuilderFinish() {
             walletData.keyFingerprints.forEach(
               (fingerprint: string, index: number) => {
                 updateKeyFingerprint(index, fingerprint)
+                // Also set directly on the account object
+                account.keys[index].fingerprint = fingerprint
               }
             )
           } else {
             // For singlesig, use the single fingerprint
             updateKeyFingerprint(key.index, walletData.fingerprint)
+            // Also set directly on the account object
+            account.keys[key.index].fingerprint = walletData.fingerprint
           }
           setKeyDerivationPath(key.index, walletData.derivationPath)
+          // Also set directly on the account object
+          account.keys[key.index].derivationPath = walletData.derivationPath
         }
         updateKeySecret(key.index, encryptedSecret)
+        // Also set directly on the account object
+        account.keys[key.index].secret = encryptedSecret
       }
 
-      const accountWithEncryptedSecret = getAccountData()
+      // Use the account object we've been modifying instead of getting a new one
+      const accountWithEncryptedSecret = account
       // Ensure policy type and creation type are preserved
       accountWithEncryptedSecret.policyType = policyType
       accountWithEncryptedSecret.keys[0].creationType = creationType
