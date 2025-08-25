@@ -8,7 +8,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import {
   getDescriptorsFromKeyData,
-  getExtendedPublicKeyFromAccountKey,
+  getExtendedPublicKeyFromMnemonic,
   getFingerprint,
   validateMnemonic
 } from '@/api/bdk'
@@ -42,6 +42,28 @@ import { seedWordsPrefixOfAnother } from '@/utils/seed'
 
 const MIN_LETTERS_TO_SHOW_WORD_SELECTOR = 2
 const wordList = getWordList()
+
+// Function to get user-friendly display names for script versions
+function getScriptVersionDisplayName(scriptVersion: string): string {
+  switch (scriptVersion) {
+    case 'P2PKH':
+      return 'Legacy (P2PKH)'
+    case 'P2SH-P2WPKH':
+      return 'Nested Segwit (P2SH-P2WPKH)'
+    case 'P2WPKH':
+      return 'Native Segwit (P2WPKH)'
+    case 'P2TR':
+      return 'Taproot (P2TR)'
+    case 'P2SH':
+      return 'Legacy (P2SH)'
+    case 'P2SH-P2WSH':
+      return 'Nested Segwit (P2SH-P2WSH)'
+    case 'P2WSH':
+      return 'Native Segwit (P2WSH)'
+    default:
+      return scriptVersion
+  }
+}
 
 export default function ImportMnemonic() {
   const { keyIndex } = useLocalSearchParams<ImportMnemonicSearchParams>()
@@ -337,7 +359,6 @@ export default function ImportMnemonic() {
 
     if (policyType === 'singlesig') {
       const account = getAccountData()
-
       const data = await accountBuilderFinish(account)
       if (!data || !data.wallet) return
 
@@ -361,11 +382,25 @@ export default function ImportMnemonic() {
       }
     } else if (policyType === 'multisig') {
       try {
-        const extendedPublicKey = await getExtendedPublicKeyFromAccountKey(
-          currentKey,
+        // Get the mnemonic from the current key
+        // const mnemonic = mnemonicWordsInfo.map((word) => word.value).join(' ')
+
+        if (!mnemonic || mnemonic.trim() === '') {
+          throw new Error('Mnemonic is required for multisig accounts')
+        }
+
+        const extendedPublicKey = await getExtendedPublicKeyFromMnemonic(
+          mnemonic,
+          passphrase,
           network as Network,
-          policyType === 'multisig' // Pass multisig flag
+          scriptVersion
         )
+
+        if (!extendedPublicKey) {
+          throw new Error(
+            'Failed to generate extended public key from mnemonic'
+          )
+        }
 
         // Generate descriptors from the key data
         if (extendedPublicKey && currentKey.fingerprint) {
@@ -391,11 +426,17 @@ export default function ImportMnemonic() {
             extendedPublicKey
           })
         }
-      } catch (_error) {}
+      } catch (error) {
+        toast.error(
+          (error as Error).message || 'Failed to import multisig account'
+        )
+        setLoadingAccount(false)
+        return
+      }
 
       setLoadingAccount(false)
       clearKeyState()
-      router.dismiss(2)
+      router.dismiss(1)
     }
   }
 
@@ -510,9 +551,7 @@ export default function ImportMnemonic() {
                 {t('account.script')}
               </SSText>
               <SSText size="md" color="muted" center>
-                {t(`script.${scriptVersion.toLowerCase()}.name`)}
-                {'\n'}
-                {`(${scriptVersion})`}
+                {getScriptVersionDisplayName(scriptVersion)}
               </SSText>
             </SSVStack>
             <SSVStack itemsCenter>

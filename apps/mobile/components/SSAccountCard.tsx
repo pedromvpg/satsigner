@@ -9,6 +9,7 @@ import { usePriceStore } from '@/store/price'
 import { useSettingsStore } from '@/store/settings'
 import { Colors } from '@/styles'
 import { type Account } from '@/types/models/Account'
+import { extractAccountFingerprint } from '@/utils/account'
 import { formatNumber } from '@/utils/format'
 
 import { SSIconChevronRight, SSIconEyeOn } from './icons'
@@ -77,7 +78,25 @@ function SSAccountCard({ account, onPress }: SSAccountCardProps) {
 
         if (date !== undefined) {
           const now = Math.floor(Date.now() / 1000)
-          const diff = now - new Date(date).getTime() / 1000
+
+          // Safely convert date to Date object
+          let dateObj: Date
+          try {
+            if (date instanceof Date) {
+              dateObj = date
+            } else {
+              dateObj = new Date(date)
+              if (isNaN(dateObj.getTime())) {
+                // Invalid lastSyncedAt value in SSAccountCard
+                break
+              }
+            }
+          } catch (_error) {
+            // Error parsing lastSyncedAt in SSAccountCard
+            break
+          }
+
+          const diff = now - dateObj.getTime() / 1000
 
           const hours = Math.floor(diff / 3600)
           const days = Math.floor(hours / 24)
@@ -156,10 +175,7 @@ function SSAccountCard({ account, onPress }: SSAccountCardProps) {
               size="xs"
               style={{ color: Colors.gray[500], lineHeight: 10 }}
             >
-              {typeof account.keys[0].secret === 'object' &&
-              account.keys[0].secret.fingerprint
-                ? account.keys[0].secret.fingerprint
-                : account.keys[0].fingerprint || '-'}
+              {extractAccountFingerprint(account) || '-'}
             </SSText>
           )}
           <SSHStack gap="sm">
