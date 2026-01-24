@@ -81,9 +81,10 @@ function useSyncAccountWithWallet() {
       updatedAccount.lastSyncedAt = new Date()
 
       return updatedAccount
-    } catch {
+    } catch (error) {
+      console.error('Wallet sync error:', error)
       setSyncStatus(account.id, 'error')
-      return account
+      throw error // Re-throw to see the actual error
     } finally {
       setLoading(false)
     }

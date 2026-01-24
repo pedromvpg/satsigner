@@ -594,8 +594,22 @@ async function syncWallet(
   backend: Backend,
   blockchainConfig: BlockchainElectrumConfig | BlockchainEsploraConfig
 ) {
+  console.log('[BDK] Starting wallet sync...')
+  console.log('[BDK] Backend:', backend)
+  console.log('[BDK] Config:', JSON.stringify(blockchainConfig, null, 2))
+  
   const blockchain = await getBlockchain(backend, blockchainConfig)
-  await wallet.sync(blockchain)
+  
+  console.log('[BDK] Calling wallet.sync()...')
+  const syncResult = await wallet.sync(blockchain)
+  console.log('[BDK] Sync result:', syncResult)
+  
+  if (!syncResult) {
+    throw new Error('Wallet sync failed: sync returned false')
+  }
+  
+  console.log('[BDK] Wallet sync completed successfully')
+  return syncResult
 }
 
 async function getBlockchain(
@@ -605,8 +619,21 @@ async function getBlockchain(
   let blockchainName: BlockChainNames = BlockChainNames.Electrum
   if (backend === 'esplora') blockchainName = BlockChainNames.Esplora
 
-  const blockchain = await new Blockchain().create(config, blockchainName)
-  return blockchain
+  try {
+    console.log('[BDK] Creating blockchain with config:', {
+      backend,
+      blockchainName,
+      config: JSON.stringify(config, null, 2)
+    })
+    const blockchain = await new Blockchain().create(config, blockchainName)
+    console.log('[BDK] Blockchain created successfully, ID:', blockchain.id)
+    return blockchain
+  } catch (error) {
+    console.error('[BDK] Failed to create blockchain:', error)
+    console.error('[BDK] Backend:', backend)
+    console.error('[BDK] Config:', JSON.stringify(config, null, 2))
+    throw error
+  }
 }
 
 async function getWalletAddresses(
@@ -974,7 +1001,7 @@ async function getLastUnusedAddressFromWallet(wallet: Wallet) {
 }
 
 async function getScriptPubKeyFromAddress(address: string, network: Network) {
-  const recipientAddress = await new Address().create(address, network)
+  const recipientAddress = await new Address().create(address)
   return recipientAddress.scriptPubKey()
 }
 
