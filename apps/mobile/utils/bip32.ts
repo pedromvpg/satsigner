@@ -1,7 +1,9 @@
 import ecc from '@bitcoinerlab/secp256k1'
 import { HDKey } from '@scure/bip32' // TODO: remove @scure
 import * as bip39 from '@scure/bip39' // TODO: remove @scure
-import { KeychainKind, Network as BDKNetwork } from 'bdk-rn/lib/lib/enums'
+import { KeychainKind, Network } from 'bdk-rn'
+
+type BDKNetwork = Network
 import { BIP32Factory, type BIP32Interface } from 'bip32'
 
 import type { ScriptVersionType } from '@/types/models/Account'
@@ -45,10 +47,11 @@ const BIP32NetworkTestnet: BIP32Interface['network'] = {
 }
 
 const BIP32Networks: Record<BDKNetwork, BIP32Interface['network']> = {
-  [BDKNetwork.Bitcoin]: BIP32NetworkMainnet,
-  [BDKNetwork.Regtest]: BIP32NetworkTestnet,
-  [BDKNetwork.Signet]: BIP32NetworkTestnet,
-  [BDKNetwork.Testnet]: BIP32NetworkTestnet
+  [Network.Bitcoin]: BIP32NetworkMainnet,
+  [Network.Regtest]: BIP32NetworkTestnet,
+  [Network.Signet]: BIP32NetworkTestnet,
+  [Network.Testnet]: BIP32NetworkTestnet,
+  [Network.Testnet4]: BIP32NetworkTestnet
 }
 
 export function getStandardPath(

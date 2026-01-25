@@ -1,4 +1,4 @@
-import { Network as BDKNetwork } from 'bdk-rn/lib/lib/enums'
+import { Network as BDKNetwork } from 'bdk-rn'
 
 import { type ScriptVersionType } from '@/types/models/Account'
 import {

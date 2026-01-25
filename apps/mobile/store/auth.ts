@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 
@@ -7,11 +8,13 @@ import {
   DURESS_PIN_KEY,
   PIN_KEY
 } from '@/config/auth'
-import { getItem, setItem } from '@/storage/encrypted'
-import mmkvStorage from '@/storage/mmkv'
+import { deleteItem, getItem, setItem } from '@/storage/encrypted'
 import { type PageRoute } from '@/types/navigation/page'
 import { doubleShaEncrypt } from '@/utils/crypto'
 import { formatPageUrl } from '@/utils/format'
+
+// Key for storing firstTime flag in SecureStore as backup
+const FIRST_TIME_KEY = 'satsigner_first_time'
 
 type AuthState = {
   firstTime: boolean
@@ -27,7 +30,7 @@ type AuthState = {
 }
 
 type AuthAction = {
-  setFirstTime: (firstTime: boolean) => void
+  setFirstTime: (firstTime: boolean) => Promise<void>
   setRequiresAuth: (requiresAuth: boolean) => void
   setLockTriggered: (lockTriggered: boolean) => void
   setPin: (pin: string) => Promise<void>
@@ -58,8 +61,14 @@ const useAuthStore = create<AuthState & AuthAction>()(
       skipPin: false,
       duressPinEnabled: false,
       justUnlocked: false,
-      setFirstTime: (firstTime: boolean) => {
+      setFirstTime: async (firstTime: boolean) => {
         set({ firstTime })
+        // Also persist to SecureStore as backup for when MMKV isn't ready
+        if (firstTime) {
+          await deleteItem(FIRST_TIME_KEY).catch(() => {})
+        } else {
+          await setItem(FIRST_TIME_KEY, 'false')
+        }
       },
       setRequiresAuth: (requiresAuth) => {
         set({ requiresAuth })
@@ -131,7 +140,9 @@ const useAuthStore = create<AuthState & AuthAction>()(
     }),
     {
       name: 'satsigner-auth',
-      storage: createJSONStorage(() => mmkvStorage)
+      // Use AsyncStorage instead of MMKV for auth state
+      // MMKV fails in New Architecture (Bridgeless mode) because JSI isn't ready
+      storage: createJSONStorage(() => AsyncStorage)
     }
   )
 )

@@ -1,6 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native'
 import { FlashList } from '@shopify/flash-list'
-import { type Network } from 'bdk-rn/lib/lib/enums'
+import { type Network } from 'bdk-rn'
 import {
   Redirect,
   router,

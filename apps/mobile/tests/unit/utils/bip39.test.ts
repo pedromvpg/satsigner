@@ -1,4 +1,4 @@
-import { KeychainKind, Network as BdkNetwork } from 'bdk-rn/lib/lib/enums'
+import { KeychainKind, Network as BdkNetwork } from 'bdk-rn'
 
 import { type ScriptVersionType } from '@/types/models/Account'
 import {

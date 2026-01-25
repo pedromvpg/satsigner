@@ -1,4 +1,4 @@
-import { type Network } from 'bdk-rn/lib/lib/enums'
+import { type Network } from 'bdk-rn'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
 import { ScrollView } from 'react-native'

@@ -2,7 +2,7 @@ import {
   getFocusedRouteNameFromRoute,
   useRoute
 } from '@react-navigation/native'
-import { type Network } from 'bdk-rn/lib/lib/enums'
+import { type Network } from 'bdk-rn'
 import { Redirect, useGlobalSearchParams } from 'expo-router'
 import Drawer from 'expo-router/drawer'
 import { useEffect } from 'react'

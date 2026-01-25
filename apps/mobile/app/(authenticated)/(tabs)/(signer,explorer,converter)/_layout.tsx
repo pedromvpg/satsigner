@@ -22,7 +22,6 @@ import {
 } from '@/components/icons'
 import SSIconBackArrow from '@/components/icons/SSIconBackArrow'
 import SSIconButton from '@/components/SSIconButton'
-import SSText from '@/components/SSText'
 import { t } from '@/locales'
 import { Colors } from '@/styles'
 import { showNavigation } from '@/utils/navigation'
@@ -97,21 +96,18 @@ export default function StackLayout(params: any) {
           contentStyle: {
             backgroundColor: Colors.gray[950]
           },
-          headerBackground: () => (
-            <View
-              style={{
-                height: '100%',
-                justifyContent: 'center',
-                alignItems: 'center',
-                backgroundColor: Colors.gray[950]
-              }}
-            />
-          ),
-          headerTitle: () => (
-            <SSText uppercase style={{ letterSpacing: 1 }}>
-              {t('app.name')}
-            </SSText>
-          ),
+          headerStyle: {
+            backgroundColor: Colors.gray[950]
+          },
+          headerTitle: t('app.name'),
+          headerTitleStyle: {
+            fontFamily: 'Roboto',
+            fontSize: 14,
+            fontWeight: '400',
+            letterSpacing: 1,
+            textTransform: 'uppercase',
+            color: Colors.white
+          },
           headerLeft: isShowNav
             ? () => (
                 <SSIconButton

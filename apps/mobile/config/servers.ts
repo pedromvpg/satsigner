@@ -1,7 +1,7 @@
 import {
   type BlockchainElectrumConfig,
   type BlockchainEsploraConfig
-} from 'bdk-rn/lib/lib/enums'
+} from '@/api/bdk'
 
 import { type Backend, type ProxyConfig } from '@/types/settings/blockchain'
 

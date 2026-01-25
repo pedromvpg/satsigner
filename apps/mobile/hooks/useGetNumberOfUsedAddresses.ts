@@ -1,4 +1,4 @@
-import { type Wallet } from 'bdk-rn/lib/classes/Wallet'
+import { KeychainKind, type Wallet } from 'bdk-rn'
 import { useEffect, useState } from 'react'
 
 import { useBlockchainStore } from '@/store/blockchain'
@@ -32,12 +32,15 @@ function useGetNumberOfUsedAddresses(wallet: Wallet, account: Account) {
     if (!wallet) return
 
     while (index < lastIndexWithFunds + stopGap) {
-      const addrInfo = await wallet.getAddress(index)
-      const address = addrInfo?.address
-      const addr = address ? await address.asString() : ''
-      if (seenAddresses[addr] !== undefined) {
-        lastIndexWithFunds = index
-        localAddressCount += 1
+      try {
+        const addrInfo = wallet.peekAddress(KeychainKind.External, index)
+        const addr = addrInfo.address.toString()
+        if (seenAddresses[addr] !== undefined) {
+          lastIndexWithFunds = index
+          localAddressCount += 1
+        }
+      } catch {
+        break
       }
       index += 1
     }

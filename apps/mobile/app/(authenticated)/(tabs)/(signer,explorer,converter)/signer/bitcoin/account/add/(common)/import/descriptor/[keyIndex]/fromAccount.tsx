@@ -1,5 +1,5 @@
 import { Descriptor } from 'bdk-rn'
-import { KeychainKind, type Network } from 'bdk-rn/lib/lib/enums'
+import { KeychainKind, type Network } from 'bdk-rn'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useMemo, useState } from 'react'
 import { ScrollView, TouchableOpacity } from 'react-native'

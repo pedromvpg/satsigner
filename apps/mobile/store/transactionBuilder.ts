@@ -1,11 +1,11 @@
-import { type PartiallySignedTransaction } from 'bdk-rn'
-import { type TxBuilderResult } from 'bdk-rn/lib/classes/Bindings'
+import { type PsbtInterface } from 'bdk-rn'
 import { enableMapSet, produce } from 'immer'
 import uuid from 'react-native-uuid'
 import { create } from 'zustand'
 
 import { type Output } from '@/types/models/Output'
 import { type Utxo } from '@/types/models/Utxo'
+import { type TxBuilderResult } from '@/types/bdk'
 import { getUtxoOutpoint } from '@/utils/utxo'
 
 enableMapSet()
@@ -19,7 +19,7 @@ type TransactionBuilderState = {
   rbf: boolean
   cpfp: boolean
   txBuilderResult?: TxBuilderResult
-  psbt?: PartiallySignedTransaction
+  psbt?: PsbtInterface
   signedTx?: string
   signedPsbts: Map<number, string>
   broadcasted: boolean

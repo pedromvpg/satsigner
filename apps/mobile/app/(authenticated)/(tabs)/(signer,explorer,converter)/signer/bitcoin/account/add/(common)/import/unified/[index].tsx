@@ -1,6 +1,6 @@
 import { Descriptor } from 'bdk-rn'
-import { type Network as BdkNetwork } from 'bdk-rn/lib/lib/enums'
-import { CameraView, useCameraPermissions } from 'expo-camera/next'
+import { type Network as BdkNetwork } from 'bdk-rn'
+import { CameraView, useCameraPermissions } from 'expo-camera'
 import * as Clipboard from 'expo-clipboard'
 import { Redirect, router, Stack, useLocalSearchParams } from 'expo-router'
 import { useEffect, useState } from 'react'

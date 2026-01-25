@@ -1,6 +1,5 @@
 import ecc from '@bitcoinerlab/secp256k1'
-import { Descriptor } from 'bdk-rn'
-import { Network } from 'bdk-rn/lib/lib/enums'
+import { Descriptor, Network } from 'bdk-rn'
 import * as bitcoinjs from 'bitcoinjs-lib'
 
 import { type ScriptVersionType } from '@/types/models/Account'

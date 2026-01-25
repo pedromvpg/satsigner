@@ -40,7 +40,7 @@ export default function Add() {
     <SSMainLayout>
       <Stack.Screen
         options={{
-          headerTitle: () => <SSText uppercase>{t('account.add')}</SSText>
+          headerTitle: t('account.add')
         }}
       />
       <SSVStack gap="lg" justifyBetween>

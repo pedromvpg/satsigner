@@ -1,4 +1,4 @@
-import { type Network } from 'bdk-rn/lib/lib/enums'
+import { type Network } from 'bdk-rn'
 import { getPublicKey, nip19 } from 'nostr-tools'
 import { useCallback } from 'react'
 import { toast } from 'sonner-native'

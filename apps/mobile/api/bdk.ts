@@ -1,28 +1,24 @@
 import {
   Address,
-  Blockchain,
-  DatabaseConfig,
+  type AddressInfo,
+  Amount,
+  type AmountInterface,
+  type CanonicalTx,
   Descriptor,
+  type DescriptorInterface,
   DescriptorPublicKey,
   DescriptorSecretKey,
+  ElectrumClient as BdkElectrumClient,
+  EsploraClient as BdkEsploraClient,
+  KeychainKind,
+  type LocalOutput,
   Mnemonic,
-  type PartiallySignedTransaction,
+  Network,
+  Persister,
+  type PsbtInterface,
   TxBuilder,
   Wallet
 } from 'bdk-rn'
-import {
-  type LocalUtxo,
-  type TransactionDetails,
-  type TxBuilderResult
-} from 'bdk-rn/lib/classes/Bindings'
-import {
-  AddressIndex,
-  type BlockchainElectrumConfig,
-  type BlockchainEsploraConfig,
-  BlockChainNames,
-  KeychainKind,
-  type Network
-} from 'bdk-rn/lib/lib/enums'
 
 import { type Account, type Key, type Secret } from '@/types/models/Account'
 import { type Output } from '@/types/models/Output'
@@ -46,6 +42,47 @@ import { parseAccountAddressesDetails } from '@/utils/parse'
 import ElectrumClient from './electrum'
 import Esplora from './esplora'
 
+// Re-export types for backward compatibility
+export { KeychainKind, Network } from 'bdk-rn'
+
+// Convert app network string to BDK Network enum
+function toBdkNetwork(network: BlockchainNetwork | Network | string): Network {
+  if (typeof network === 'number') {
+    return network as Network
+  }
+  switch (network) {
+    case 'bitcoin':
+      return Network.Bitcoin
+    case 'testnet':
+      return Network.Testnet
+    case 'signet':
+      return Network.Signet
+    case 'regtest':
+      return Network.Regtest
+    default:
+      console.warn(`[BDK] Unknown network: ${network}, defaulting to Signet`)
+      return Network.Signet
+  }
+}
+
+// Config types for backward compatibility
+type BlockchainElectrumConfig = {
+  url: string
+  socks5?: string
+  retry?: number
+  timeout?: number
+  stopGap?: number
+  validateDomain?: boolean
+}
+
+type BlockchainEsploraConfig = {
+  baseUrl: string
+  proxy?: string
+  concurrency?: number
+  stopGap?: number
+  timeout?: number
+}
+
 type WalletData = {
   fingerprint: string
   derivationPath: string
@@ -57,8 +94,9 @@ type WalletData = {
 
 async function getWalletData(
   account: Account,
-  network: Network
+  networkInput: BlockchainNetwork | Network | string
 ): Promise<WalletData | undefined> {
+  const network = toBdkNetwork(networkInput)
   switch (account.policyType) {
     case 'singlesig': {
       if (account.keys.length !== 1)
@@ -219,22 +257,10 @@ async function getWalletData(
       const externalDescriptor = finalDescriptor.replace(/<0;1>/g, '0')
       const internalDescriptor = finalDescriptor.replace(/<0;1>/g, '1')
 
-      const externalDesc = await new Descriptor().create(
-        externalDescriptor,
-        network
-      )
-      const internalDesc = await new Descriptor().create(
-        internalDescriptor,
-        network
-      )
-      if (!externalDesc) {
-        throw new Error('Failed to create external descriptor')
-      }
-      if (!internalDesc) {
-        throw new Error('Failed to create internal descriptor')
-      }
+      const externalDesc = new Descriptor(externalDescriptor, network)
+      const internalDesc = new Descriptor(internalDescriptor, network)
 
-      const parsedDescriptor = await parseDescriptor(externalDesc)
+      const parsedDescriptor = parseDescriptor(externalDesc)
 
       const wallet = await getWalletFromDescriptor(
         externalDesc,
@@ -264,24 +290,15 @@ async function getWalletData(
         if (typeof key.secret === 'string' || !key.secret.externalDescriptor)
           throw new Error('Invalid secret')
 
-        const externalDescriptor = await new Descriptor().create(
+        const externalDescriptor = new Descriptor(
           key.secret.externalDescriptor,
           network
         )
-        if (!externalDescriptor) {
-          throw new Error('Failed to create external descriptor')
-        }
         const internalDescriptor = key.secret.internalDescriptor
-          ? await new Descriptor().create(
-              key.secret.internalDescriptor,
-              network
-            )
+          ? new Descriptor(key.secret.internalDescriptor, network)
           : null
-        if (key.secret.internalDescriptor && !internalDescriptor) {
-          throw new Error('Failed to create internal descriptor')
-        }
 
-        const parsedDescriptor = await parseDescriptor(externalDescriptor)
+        const parsedDescriptor = parseDescriptor(externalDescriptor)
         const wallet = await getWalletFromDescriptor(
           externalDescriptor,
           internalDescriptor,
@@ -291,11 +308,9 @@ async function getWalletData(
         return {
           fingerprint: parsedDescriptor.fingerprint,
           derivationPath: parsedDescriptor.derivationPath,
-          externalDescriptor: externalDescriptor
-            ? await externalDescriptor.asString()
-            : '',
+          externalDescriptor: externalDescriptor.toString(),
           internalDescriptor: internalDescriptor
-            ? await internalDescriptor.asString()
+            ? internalDescriptor.toString()
             : '',
           wallet
         }
@@ -308,22 +323,22 @@ async function getWalletData(
         )
           throw new Error('Invalid account information')
 
-        const extendedPublicKey = await new DescriptorPublicKey().fromString(
+        const extendedPublicKey = DescriptorPublicKey.fromString(
           key.secret.extendedPublicKey
         )
 
-        let externalDescriptor: Descriptor
-        let internalDescriptor: Descriptor
+        let externalDescriptor: DescriptorInterface
+        let internalDescriptor: DescriptorInterface
 
         switch (key.scriptVersion) {
           case 'P2PKH':
-            externalDescriptor = await new Descriptor().newBip44Public(
+            externalDescriptor = Descriptor.newBip44Public(
               extendedPublicKey,
               key.secret.fingerprint,
               KeychainKind.External,
               network
             )
-            internalDescriptor = await new Descriptor().newBip44Public(
+            internalDescriptor = Descriptor.newBip44Public(
               extendedPublicKey,
               key.secret.fingerprint,
               KeychainKind.Internal,
@@ -331,13 +346,13 @@ async function getWalletData(
             )
             break
           case 'P2SH-P2WPKH':
-            externalDescriptor = await new Descriptor().newBip49Public(
+            externalDescriptor = Descriptor.newBip49Public(
               extendedPublicKey,
               key.secret.fingerprint,
               KeychainKind.External,
               network
             )
-            internalDescriptor = await new Descriptor().newBip49Public(
+            internalDescriptor = Descriptor.newBip49Public(
               extendedPublicKey,
               key.secret.fingerprint,
               KeychainKind.Internal,
@@ -345,13 +360,13 @@ async function getWalletData(
             )
             break
           case 'P2WPKH':
-            externalDescriptor = await new Descriptor().newBip84Public(
+            externalDescriptor = Descriptor.newBip84Public(
               extendedPublicKey,
               key.secret.fingerprint,
               KeychainKind.External,
               network
             )
-            internalDescriptor = await new Descriptor().newBip84Public(
+            internalDescriptor = Descriptor.newBip84Public(
               extendedPublicKey,
               key.secret.fingerprint,
               KeychainKind.Internal,
@@ -359,13 +374,13 @@ async function getWalletData(
             )
             break
           case 'P2TR':
-            externalDescriptor = await new Descriptor().newBip86Public(
+            externalDescriptor = Descriptor.newBip86Public(
               extendedPublicKey,
               key.secret.fingerprint,
               KeychainKind.External,
               network
             )
-            internalDescriptor = await new Descriptor().newBip86Public(
+            internalDescriptor = Descriptor.newBip86Public(
               extendedPublicKey,
               key.secret.fingerprint,
               KeychainKind.Internal,
@@ -380,13 +395,13 @@ async function getWalletData(
               `Manual descriptor creation required for ${key.scriptVersion}`
             )
           default:
-            externalDescriptor = await new Descriptor().newBip84Public(
+            externalDescriptor = Descriptor.newBip84Public(
               extendedPublicKey,
               key.secret.fingerprint,
               KeychainKind.External,
               network
             )
-            internalDescriptor = await new Descriptor().newBip84Public(
+            internalDescriptor = Descriptor.newBip84Public(
               extendedPublicKey,
               key.secret.fingerprint,
               KeychainKind.Internal,
@@ -395,22 +410,20 @@ async function getWalletData(
             break
         }
 
-        const parsedDescriptor = await parseDescriptor(externalDescriptor)
+        const parsedDescriptor = parseDescriptor(
+          externalDescriptor as Descriptor
+        )
         const wallet = await getWalletFromDescriptor(
-          externalDescriptor,
-          internalDescriptor,
+          externalDescriptor as Descriptor,
+          internalDescriptor as Descriptor,
           network
         )
 
         return {
           fingerprint: parsedDescriptor.fingerprint,
           derivationPath: parsedDescriptor.derivationPath,
-          externalDescriptor: externalDescriptor
-            ? await externalDescriptor.asString()
-            : '',
-          internalDescriptor: internalDescriptor
-            ? await internalDescriptor.asString()
-            : '',
+          externalDescriptor: externalDescriptor.toString(),
+          internalDescriptor: internalDescriptor.toString(),
           wallet
         }
       } else if (key.creationType === 'importAddress') {
@@ -422,25 +435,21 @@ async function getWalletData(
   }
 }
 
-async function getDescriptorObjectMultiSig(
+function getDescriptorObjectMultiSig(
   mnemonic: NonNullable<Secret['mnemonic']>,
   scriptVersion: NonNullable<Key['scriptVersion']>,
   kind: KeychainKind,
   passphrase: Secret['passphrase'],
   network: Network
-) {
-  const parsedMnemonic = await new Mnemonic().fromString(mnemonic)
-  const descriptorSecretKey = await new DescriptorSecretKey().create(
+): DescriptorInterface {
+  const parsedMnemonic = Mnemonic.fromString(mnemonic)
+  const descriptorSecretKey = new DescriptorSecretKey(
     network,
     parsedMnemonic,
-    passphrase
+    passphrase || undefined
   )
-  const baseDescriptor = await new Descriptor().newBip84(
-    descriptorSecretKey,
-    kind,
-    network
-  )
-  const baseString = baseDescriptor ? await baseDescriptor.asString() : ''
+  const baseDescriptor = Descriptor.newBip84(descriptorSecretKey, kind, network)
+  const baseString = baseDescriptor.toString()
   const keyPart = baseString.replace(/^wpkh\(/, '').replace(/\)$/, '')
 
   let descriptorString = ''
@@ -459,8 +468,7 @@ async function getDescriptorObjectMultiSig(
       throw new Error(`Unsupported script version: ${scriptVersion}`)
   }
 
-  const descriptor = await new Descriptor().create(descriptorString, network)
-
+  const descriptor = new Descriptor(descriptorString, network)
   return descriptor
 }
 
@@ -470,47 +478,62 @@ async function getWalletDataFromMnemonic(
   passphrase: Secret['passphrase'],
   network: Network
 ) {
-  const externalDescriptor = await getDescriptorObject(
-    mnemonic,
-    scriptVersion,
-    KeychainKind.External,
-    passphrase,
-    network
-  )
+  console.log('[BDK] getWalletDataFromMnemonic started', { scriptVersion, network })
 
-  const internalDescriptor = await getDescriptorObject(
-    mnemonic,
-    scriptVersion,
-    KeychainKind.Internal,
-    passphrase,
-    network
-  )
+  try {
+    console.log('[BDK] Creating external descriptor...')
+    const externalDescriptor = getDescriptorObject(
+      mnemonic,
+      scriptVersion,
+      KeychainKind.External,
+      passphrase,
+      network
+    )
+    console.log('[BDK] External descriptor created:', externalDescriptor.toString().slice(0, 50) + '...')
 
-  const [{ fingerprint, derivationPath }, wallet] = await Promise.all([
-    parseDescriptor(externalDescriptor),
-    getWalletFromDescriptor(externalDescriptor, internalDescriptor, network)
-  ])
+    console.log('[BDK] Creating internal descriptor...')
+    const internalDescriptor = getDescriptorObject(
+      mnemonic,
+      scriptVersion,
+      KeychainKind.Internal,
+      passphrase,
+      network
+    )
+    console.log('[BDK] Internal descriptor created:', internalDescriptor.toString().slice(0, 50) + '...')
 
-  return {
-    fingerprint,
-    derivationPath,
-    externalDescriptor: externalDescriptor
-      ? await externalDescriptor.asString()
-      : '',
-    internalDescriptor: internalDescriptor
-      ? await internalDescriptor.asString()
-      : '',
-    wallet
+    const parsedDescriptor = parseDescriptor(externalDescriptor as Descriptor)
+    console.log('[BDK] Parsed descriptor:', parsedDescriptor)
+
+    console.log('[BDK] Creating wallet from descriptor...')
+    const wallet = await getWalletFromDescriptor(
+      externalDescriptor as Descriptor,
+      internalDescriptor as Descriptor,
+      network
+    )
+    console.log('[BDK] Wallet created successfully')
+
+    return {
+      fingerprint: parsedDescriptor.fingerprint,
+      derivationPath: parsedDescriptor.derivationPath,
+      externalDescriptor: externalDescriptor.toString(),
+      internalDescriptor: internalDescriptor.toString(),
+      wallet
+    }
+  } catch (error) {
+    console.error('[BDK] Error in getWalletDataFromMnemonic:', error)
+    throw error
   }
 }
 
-async function getDescriptorObject(
+function getDescriptorObject(
   mnemonic: NonNullable<Secret['mnemonic']>,
   scriptVersion: NonNullable<Key['scriptVersion']>,
   kind: KeychainKind,
   passphrase: Secret['passphrase'],
   network: Network
-) {
+): DescriptorInterface {
+  console.log('[BDK] getDescriptorObject called', { scriptVersion, kind, network, networkType: typeof network })
+
   // TODO: inspect if extra multisig is really needed, since the
   // getPrivateDescriptorFromMnemonic should work (in theory) for both
   // scenarios.
@@ -519,6 +542,7 @@ async function getDescriptorObject(
     scriptVersion === 'P2SH-P2WSH' ||
     scriptVersion === 'P2WSH'
   ) {
+    console.log('[BDK] Using multisig descriptor')
     return getDescriptorObjectMultiSig(
       mnemonic,
       scriptVersion,
@@ -528,6 +552,7 @@ async function getDescriptorObject(
     )
   }
 
+  console.log('[BDK] Getting private descriptor from mnemonic...')
   const descriptor = getPrivateDescriptorFromMnemonic(
     mnemonic,
     scriptVersion,
@@ -535,16 +560,20 @@ async function getDescriptorObject(
     passphrase,
     network
   )
-  const descriptorObject = await new Descriptor().create(descriptor, network)
+  console.log('[BDK] Private descriptor string:', descriptor.slice(0, 50) + '...')
+
+  console.log('[BDK] Creating Descriptor object...')
+  const descriptorObject = new Descriptor(descriptor, network)
+  console.log('[BDK] Descriptor object created')
   return descriptorObject
 }
 
-// TODO: refactor it to be synchronous and replace occurrences
-async function parseDescriptor(descriptor: Descriptor) {
+// Synchronous version of parseDescriptor
+function parseDescriptor(descriptor: Descriptor) {
   if (!descriptor) {
     return { fingerprint: '', derivationPath: '' }
   }
-  const descriptorString = await descriptor.asString()
+  const descriptorString = descriptor.toString()
   const match = descriptorString.match(/\[([0-9a-f]+)([0-9'/]+)\]/)
   return match
     ? { fingerprint: match[1], derivationPath: `m${match[2]}` }
@@ -552,22 +581,32 @@ async function parseDescriptor(descriptor: Descriptor) {
 }
 
 async function getWalletFromDescriptor(
-  externalDescriptor: Descriptor,
-  internalDescriptor: Descriptor | null | undefined,
+  externalDescriptor: Descriptor | DescriptorInterface,
+  internalDescriptor: Descriptor | DescriptorInterface | null | undefined,
   network: Network
 ) {
-  const dbConfig = await new DatabaseConfig().memory()
-  const wallet = await new Wallet().create(
-    externalDescriptor,
-    internalDescriptor,
+  const persister = Persister.newInMemory()
+
+  // Create a dummy internal descriptor if none provided (single-descriptor wallet)
+  if (!internalDescriptor) {
+    return Wallet.createSingle(
+      externalDescriptor as DescriptorInterface,
+      network,
+      persister
+    )
+  }
+
+  const wallet = new Wallet(
+    externalDescriptor as DescriptorInterface,
+    internalDescriptor as DescriptorInterface,
     network,
-    dbConfig
+    persister
   )
 
   return wallet
 }
 
-async function getExtendedPublicKeyFromAccountKey(key: Key, network: Network) {
+function getExtendedPublicKeyFromAccountKey(key: Key, network: Network) {
   if (
     typeof key.secret === 'string' ||
     !key.secret.mnemonic ||
@@ -575,16 +614,14 @@ async function getExtendedPublicKeyFromAccountKey(key: Key, network: Network) {
   )
     return
 
-  const externalDescriptor = await getDescriptorObject(
+  const externalDescriptor = getDescriptorObject(
     key.secret.mnemonic,
     key.scriptVersion,
     KeychainKind.External,
     key.secret.passphrase,
     network
   )
-  const extendedKey = getExtendedKeyFromDescriptor(
-    await externalDescriptor.asString()
-  )
+  const extendedKey = getExtendedKeyFromDescriptor(externalDescriptor.toString())
 
   return extendedKey
 }
@@ -597,56 +634,73 @@ async function syncWallet(
   console.log('[BDK] Starting wallet sync...')
   console.log('[BDK] Backend:', backend)
   console.log('[BDK] Config:', JSON.stringify(blockchainConfig, null, 2))
-  
-  const blockchain = await getBlockchain(backend, blockchainConfig)
-  
-  console.log('[BDK] Calling wallet.sync()...')
-  const syncResult = await wallet.sync(blockchain)
-  console.log('[BDK] Sync result:', syncResult)
-  
-  if (!syncResult) {
-    throw new Error('Wallet sync failed: sync returned false')
+
+  const stopGap = BigInt(blockchainConfig.stopGap || 10)
+  const batchSize = BigInt(10)
+  const fetchPrevTxouts = true
+
+  // Build full scan request from wallet
+  const request = wallet.startFullScan().build()
+
+  if (backend === 'electrum') {
+    const config = blockchainConfig as BlockchainElectrumConfig
+    const client = new BdkElectrumClient(config.url, config.socks5 || undefined)
+
+    console.log('[BDK] Calling electrum fullScan()...')
+    const update = client.fullScan(request, stopGap, batchSize, fetchPrevTxouts)
+
+    console.log('[BDK] Applying update to wallet...')
+    wallet.applyUpdate(update)
+  } else {
+    const config = blockchainConfig as BlockchainEsploraConfig
+    const client = new BdkEsploraClient(
+      config.baseUrl,
+      config.proxy || undefined
+    )
+    const parallelRequests = BigInt(config.concurrency || 4)
+
+    console.log('[BDK] Calling esplora fullScan()...')
+    const update = client.fullScan(request, stopGap, parallelRequests)
+
+    console.log('[BDK] Applying update to wallet...')
+    wallet.applyUpdate(update)
   }
-  
+
   console.log('[BDK] Wallet sync completed successfully')
-  return syncResult
+  return true
 }
 
-async function getBlockchain(
+// For backward compatibility - returns a client that can broadcast
+function getBlockchain(
   backend: Backend,
   config: BlockchainElectrumConfig | BlockchainEsploraConfig
-) {
-  let blockchainName: BlockChainNames = BlockChainNames.Electrum
-  if (backend === 'esplora') blockchainName = BlockChainNames.Esplora
-
-  try {
-    console.log('[BDK] Creating blockchain with config:', {
-      backend,
-      blockchainName,
-      config: JSON.stringify(config, null, 2)
-    })
-    const blockchain = await new Blockchain().create(config, blockchainName)
-    console.log('[BDK] Blockchain created successfully, ID:', blockchain.id)
-    return blockchain
-  } catch (error) {
-    console.error('[BDK] Failed to create blockchain:', error)
-    console.error('[BDK] Backend:', backend)
-    console.error('[BDK] Config:', JSON.stringify(config, null, 2))
-    throw error
+): BdkElectrumClient | BdkEsploraClient {
+  if (backend === 'esplora') {
+    const esploraConfig = config as BlockchainEsploraConfig
+    return new BdkEsploraClient(
+      esploraConfig.baseUrl,
+      esploraConfig.proxy || undefined
+    )
   }
+
+  const electrumConfig = config as BlockchainElectrumConfig
+  return new BdkElectrumClient(
+    electrumConfig.url,
+    electrumConfig.socks5 || undefined
+  )
 }
 
 async function getWalletAddresses(
   wallet: Wallet,
-  network: Network,
+  networkInput: BlockchainNetwork | Network | string,
   count = 10
 ): Promise<Account['addresses']> {
+  const network = toBdkNetwork(networkInput)
   const addresses: Account['addresses'] = []
 
   for (let i = 0; i < count; i += 1) {
-    const receiveAddrInfo = await wallet.getAddress(i)
-    const address = receiveAddrInfo?.address
-    const receiveAddr = address ? await address.asString() : ''
+    const receiveAddrInfo = wallet.peekAddress(KeychainKind.External, i)
+    const receiveAddr = receiveAddrInfo.address.toString()
     addresses.push({
       address: receiveAddr,
       keychain: 'external',
@@ -663,10 +717,8 @@ async function getWalletAddresses(
       }
     })
 
-    const changeAddrInfo = await wallet.getInternalAddress(i)
-    const changeAddr = changeAddrInfo?.address
-      ? await changeAddrInfo.address.asString()
-      : ''
+    const changeAddrInfo = wallet.peekAddress(KeychainKind.Internal, i)
+    const changeAddr = changeAddrInfo.address.toString()
 
     addresses.push({
       address: changeAddr,
@@ -706,10 +758,8 @@ async function getWalletAddressesUsingStopGap(
   let lastIndexWithFunds = -1
 
   for (let i = 0; i < lastIndexWithFunds + stopGap; i += 1) {
-    const receiveAddrInfo = await wallet.getAddress(i)
-    const receiveAddr = receiveAddrInfo?.address
-      ? await receiveAddrInfo.address.asString()
-      : ''
+    const receiveAddrInfo = wallet.peekAddress(KeychainKind.External, i)
+    const receiveAddr = receiveAddrInfo.address.toString()
     addresses.push({
       address: receiveAddr,
       keychain: 'external',
@@ -730,10 +780,8 @@ async function getWalletAddressesUsingStopGap(
       lastIndexWithFunds = i
     }
 
-    const changeAddrInfo = await wallet.getInternalAddress(i)
-    const changeAddr = changeAddrInfo?.address
-      ? await changeAddrInfo.address.asString()
-      : ''
+    const changeAddrInfo = wallet.peekAddress(KeychainKind.Internal, i)
+    const changeAddr = changeAddrInfo.address.toString()
 
     addresses.push({
       address: changeAddr,
@@ -757,9 +805,10 @@ async function getWalletAddressesUsingStopGap(
 
 async function getWalletOverview(
   wallet: Wallet,
-  network: Network,
+  networkInput: BlockchainNetwork | Network | string,
   stopGap = 10
 ): Promise<Pick<Account, 'transactions' | 'utxos' | 'addresses' | 'summary'>> {
+  const network = toBdkNetwork(networkInput)
   if (!wallet) {
     return {
       transactions: [],
@@ -775,30 +824,25 @@ async function getWalletOverview(
     }
   }
 
-  const [balance, transactionsDetails, localUtxos] = await Promise.all([
-    wallet.getBalance(),
-    wallet.listTransactions(true),
-    wallet.listUnspent()
-  ])
+  const balance = wallet.balance()
+  const canonicalTxs = wallet.transactions()
+  const localOutputs = wallet.listUnspent()
 
   const transactions: Transaction[] = []
-  for (const transactionDetails of transactionsDetails || []) {
-    const tx = await parseTransactionDetailsToTransaction(
-      transactionDetails,
-      localUtxos,
-      network
+  for (const canonicalTx of canonicalTxs || []) {
+    const tx = await parseCanonicalTxToTransaction(
+      canonicalTx,
+      localOutputs,
+      network,
+      wallet
     )
     transactions.push(tx)
   }
   // TO DO: Try Promise.all() method instead Sequential one.
 
   const utxos: Utxo[] = []
-  for (const localUtxo of localUtxos || []) {
-    const utxo = await parseLocalUtxoToUtxo(
-      localUtxo,
-      transactionsDetails,
-      network
-    )
+  for (const localOutput of localOutputs || []) {
+    const utxo = parseLocalOutputToUtxo(localOutput, canonicalTxs, network)
     utxos.push(utxo)
   }
   // TO DO: Try Promise.all() method instead Sequential one.
@@ -837,86 +881,129 @@ async function getWalletOverview(
     }
   }
 
+  // Convert Amount to number (satoshis)
+  const confirmedSats = Number(balance.confirmed.toSat())
+  const trustedPendingSats = Number(balance.trustedPending.toSat())
+  const untrustedPendingSats = Number(balance.untrustedPending.toSat())
+
   return {
     addresses,
     transactions,
     utxos,
     summary: {
-      balance: balance.confirmed,
+      balance: confirmedSats,
       numberOfAddresses,
-      numberOfTransactions: transactionsDetails.length,
-      numberOfUtxos: localUtxos.length,
-      satsInMempool: balance.trustedPending + balance.untrustedPending
+      numberOfTransactions: canonicalTxs.length,
+      numberOfUtxos: localOutputs.length,
+      satsInMempool: trustedPendingSats + untrustedPendingSats
     }
   }
 }
 
-async function parseTransactionDetailsToTransaction(
-  transactionDetails: TransactionDetails,
-  utxos: LocalUtxo[],
-  network: Network
+async function parseCanonicalTxToTransaction(
+  canonicalTx: CanonicalTx,
+  utxos: LocalOutput[],
+  network: Network,
+  wallet: Wallet
 ): Promise<Transaction> {
+  const { transaction, chainPosition } = canonicalTx
+  const txid = transaction.computeTxid().toString()
+
   const transactionUtxos = utxos.filter(
-    (utxo) => utxo?.outpoint?.txid === transactionDetails.txid
+    (utxo) => utxo.outpoint.txid.toString() === txid
   )
 
   let address = ''
   const utxo = transactionUtxos?.[0]
-  if (utxo) address = await getAddress(utxo, network)
+  if (utxo) address = getAddressFromLocalOutput(utxo, network)
 
-  const { confirmationTime, fee, received, sent, transaction, txid } =
-    transactionDetails
+  // Get sent and received amounts
+  const { sent, received } = wallet.sentAndReceived(transaction)
+  const sentSats = Number(sent.toSat())
+  const receivedSats = Number(received.toSat())
+
+  // Calculate fee
+  let fee = 0
+  try {
+    const feeAmount = wallet.calculateFee(transaction)
+    fee = Number(feeAmount.toSat())
+  } catch {
+    // Fee calculation may fail if inputs are not in wallet
+  }
 
   let lockTimeEnabled = false
-  let lockTime = 0
-  let size = 0
-  let version = 0
-  let vsize = 0
-  let weight = 0
-  let raw: number[] = []
+  const lockTime = Number(transaction.lockTime())
+  const size = Number(transaction.totalSize())
+  const version = Number(transaction.version())
+  const vsize = Number(transaction.vsize())
+  const weight = Number(transaction.weight())
+  const raw = Array.from(new Uint8Array(transaction.serialize()))
   const vin: Transaction['vin'] = []
   const vout: Transaction['vout'] = []
 
-  if (transaction) {
-    size = await transaction.size()
-    vsize = await transaction.vsize()
-    weight = await transaction.weight()
-    version = await transaction.version()
-    lockTime = await transaction.lockTime()
-    lockTimeEnabled = await transaction.isLockTimeEnabled()
-    raw = await transaction.serialize()
+  // Check if locktime is enabled (non-zero and at least one input has sequence < 0xffffffff)
+  const inputs = transaction.input()
+  lockTimeEnabled = lockTime > 0 && inputs.some((input) => Number(input.sequence) < 0xffffffff)
 
-    const inputs = await transaction.input()
-    const outputs = await transaction.output()
+  for (const index in inputs) {
+    const input = inputs[index]
+    const script = Array.from(new Uint8Array(input.scriptSig.toBytes()))
+    const witnessData = input.witness.map((w: ArrayBuffer) =>
+      Array.from(new Uint8Array(w))
+    )
+    vin.push({
+      previousOutput: {
+        txid: input.previousOutput.txid.toString(),
+        vout: input.previousOutput.vout
+      },
+      sequence: Number(input.sequence),
+      scriptSig: script,
+      witness: witnessData
+    })
+  }
 
-    for (const index in inputs) {
-      const input = inputs[index]
-      const script = await input.scriptSig.toBytes()
-      input.scriptSig = script
-      vin.push(input)
+  const outputs = transaction.output()
+  for (const index in outputs) {
+    const { value, scriptPubkey: scriptObj } = outputs[index]
+    const script = Array.from(new Uint8Array(scriptObj.toBytes()))
+    const addressObj = Address.fromScript(scriptObj, network)
+    const outputAddress = addressObj.toString()
+    vout.push({ value: Number(value.toSat()), address: outputAddress, script })
+  }
+
+  // Extract timestamp and block height from chain position
+  let timestamp: Date | undefined
+  let blockHeight: number | undefined
+
+  if ('anchor' in chainPosition) {
+    // Confirmed transaction
+    const anchor = chainPosition.anchor as {
+      confirmationBlockTime?: { blockId?: { height?: number }; confirmationTime?: number }
     }
-
-    for (const index in outputs) {
-      const { value, script: scriptObj } = outputs[index]
-      const script = await scriptObj.toBytes()
-      const addressObj = await new Address().fromScript(scriptObj, network)
-      const address = addressObj ? await addressObj.asString() : ''
-      vout.push({ value, address, script })
+    if (anchor.confirmationBlockTime) {
+      blockHeight = anchor.confirmationBlockTime.blockId?.height
+      if (anchor.confirmationBlockTime.confirmationTime) {
+        timestamp = new Date(anchor.confirmationBlockTime.confirmationTime * 1000)
+      }
+    }
+  } else if ('lastSeen' in chainPosition) {
+    // Unconfirmed transaction
+    const lastSeen = chainPosition.lastSeen as number | undefined
+    if (lastSeen) {
+      timestamp = new Date(lastSeen * 1000)
     }
   }
 
   return {
     id: txid,
-    type: sent ? 'send' : 'receive',
-    sent,
-    received,
+    type: sentSats > 0 ? 'send' : 'receive',
+    sent: sentSats,
+    received: receivedSats,
     label: '',
     fee,
     prices: {},
-    timestamp: confirmationTime?.timestamp
-      ? new Date(confirmationTime.timestamp * 1000)
-      : undefined,
-    blockHeight: confirmationTime?.height,
+    timestamp,
+    blockHeight,
     address,
     size,
     vsize,
@@ -930,36 +1017,48 @@ async function parseTransactionDetailsToTransaction(
   }
 }
 
-async function parseLocalUtxoToUtxo(
-  localUtxo: LocalUtxo,
-  transactionsDetails: TransactionDetails[],
+function parseLocalOutputToUtxo(
+  localOutput: LocalOutput,
+  canonicalTxs: CanonicalTx[],
   network: Network
-): Promise<Utxo> {
-  const addressTo = await getAddress(localUtxo, network)
-  const transactionId = localUtxo?.outpoint.txid
-  const transactionDetails = transactionsDetails.find(
-    (transactionDetails) => transactionDetails.txid === transactionId
+): Utxo {
+  const addressTo = getAddressFromLocalOutput(localOutput, network)
+  const transactionId = localOutput.outpoint.txid.toString()
+  const canonicalTx = canonicalTxs.find(
+    (tx) => tx.transaction.computeTxid().toString() === transactionId
   )
-  const script = await localUtxo.txout.script.toBytes()
+
+  const script = Array.from(
+    new Uint8Array(localOutput.txout.scriptPubkey.toBytes())
+  )
+
+  // Extract timestamp from chain position
+  let timestamp: Date | undefined
+  if (canonicalTx && 'anchor' in canonicalTx.chainPosition) {
+    const anchor = canonicalTx.chainPosition.anchor as {
+      confirmationBlockTime?: { confirmationTime?: number }
+    }
+    if (anchor.confirmationBlockTime?.confirmationTime) {
+      timestamp = new Date(anchor.confirmationBlockTime.confirmationTime * 1000)
+    }
+  }
 
   return {
     txid: transactionId,
-    vout: localUtxo?.outpoint.vout,
-    value: localUtxo?.txout.value,
-    timestamp: transactionDetails?.confirmationTime?.timestamp
-      ? new Date(transactionDetails.confirmationTime.timestamp * 1000)
-      : undefined,
+    vout: localOutput.outpoint.vout,
+    value: Number(localOutput.txout.value.toSat()),
+    timestamp,
     label: '',
     addressTo,
     script,
-    keychain: 'external'
+    keychain: localOutput.keychain === KeychainKind.External ? 'external' : 'internal'
   }
 }
 
-async function getAddress(utxo: LocalUtxo, network: Network) {
-  const script = utxo.txout.script
-  const address = await new Address().fromScript(script, network)
-  return address ? address.asString() : ''
+function getAddressFromLocalOutput(utxo: LocalOutput, network: Network) {
+  const script = utxo.txout.scriptPubkey
+  const address = Address.fromScript(script, network)
+  return address.toString()
 }
 
 async function getTransactionInputValues(
@@ -995,17 +1094,17 @@ async function getTransactionInputValues(
   return vin
 }
 
-async function getLastUnusedAddressFromWallet(wallet: Wallet) {
-  const newAddress = await wallet.getAddress(AddressIndex.New)
-  return newAddress
+function getLastUnusedAddressFromWallet(wallet: Wallet): AddressInfo {
+  const addressInfo = wallet.revealNextAddress(KeychainKind.External)
+  return addressInfo
 }
 
-async function getScriptPubKeyFromAddress(address: string, network: Network) {
-  const recipientAddress = await new Address().create(address)
-  return recipientAddress.scriptPubKey()
+function getScriptPubKeyFromAddress(address: string, network: Network) {
+  const recipientAddress = new Address(address, network)
+  return recipientAddress.scriptPubkey()
 }
 
-async function buildTransaction(
+function buildTransaction(
   wallet: Wallet,
   data: {
     inputs: Utxo[]
@@ -1016,40 +1115,55 @@ async function buildTransaction(
     }
   },
   network: Network
-) {
-  const transactionBuilder = await new TxBuilder().create()
+): PsbtInterface {
+  let txBuilder = new TxBuilder()
 
-  await transactionBuilder.addUtxos(
-    data.inputs.map((utxo) => ({ txid: utxo.txid, vout: utxo.vout }))
-  )
-  await transactionBuilder.manuallySelectedOnly()
+  // Add UTXOs
+  const outpoints = data.inputs.map((utxo) => ({
+    txid: utxo.txid,
+    vout: utxo.vout
+  }))
+  txBuilder = txBuilder.addUtxos(outpoints) as TxBuilder
+  txBuilder = txBuilder.manuallySelectedOnly() as TxBuilder
 
+  // Add recipients
   for (const output of data.outputs) {
-    const recipient = await getScriptPubKeyFromAddress(output.to, network)
-    await transactionBuilder.addRecipient(recipient, output.amount)
+    const recipient = getScriptPubKeyFromAddress(output.to, network)
+    const amount = Amount.fromSat(BigInt(output.amount))
+    txBuilder = txBuilder.addRecipient(recipient, amount) as TxBuilder
   }
 
-  await transactionBuilder.feeAbsolute(data.fee)
+  // Set fee
+  txBuilder = txBuilder.feeAbsolute(Amount.fromSat(BigInt(data.fee))) as TxBuilder
 
-  if (data.options.rbf) await transactionBuilder.enableRbf()
+  // Enable RBF if requested
+  if (data.options.rbf) {
+    txBuilder = txBuilder.enableRbf() as TxBuilder
+  }
 
-  const transactionBuilderResult = await transactionBuilder.finish(wallet)
-  return transactionBuilderResult
+  // Finish building and return PSBT
+  const psbt = txBuilder.finish(wallet)
+  return psbt
 }
 
-async function signTransaction(transaction: TxBuilderResult, wallet: Wallet) {
-  const partiallySignedTransaction = await wallet.sign(transaction.psbt)
-  return partiallySignedTransaction
+function signTransaction(psbt: PsbtInterface, wallet: Wallet): boolean {
+  const signed = wallet.sign(psbt, undefined)
+  return signed
 }
 
 async function broadcastTransaction(
-  psbt: PartiallySignedTransaction,
-  blockchain: Blockchain
+  psbt: PsbtInterface,
+  blockchain: BdkElectrumClient | BdkEsploraClient
 ) {
-  const transaction = await psbt.extractTx()
+  const transaction = psbt.extractTx()
 
-  const result = await blockchain.broadcast(transaction)
-  return result
+  if (blockchain instanceof BdkElectrumClient) {
+    const txid = blockchain.transactionBroadcast(transaction)
+    return txid.toString()
+  } else {
+    blockchain.broadcast(transaction)
+    return transaction.computeTxid().toString()
+  }
 }
 
 // Comprehensive example of how to use multisig functions
@@ -1070,3 +1184,6 @@ export {
   signTransaction,
   syncWallet
 }
+
+// Type exports for backward compatibility
+export type { BlockchainElectrumConfig, BlockchainEsploraConfig }

@@ -1,8 +1,3 @@
-import { type PartiallySignedTransaction } from 'bdk-rn'
-import {
-  type TransactionDetails,
-  type TxBuilderResult
-} from 'bdk-rn/lib/classes/Bindings'
 import * as bitcoinjs from 'bitcoinjs-lib'
 import { Buffer } from 'buffer'
 
@@ -10,6 +5,7 @@ import { SATS_PER_BITCOIN } from '@/constants/btc'
 import { t } from '@/locales'
 import { type Account } from '@/types/models/Account'
 import { type Utxo } from '@/types/models/Utxo'
+import { type TransactionDetails, type TxBuilderResult } from '@/types/bdk'
 import { extractKeyFingerprint } from '@/utils/account'
 import { bip21decode } from '@/utils/bitcoin'
 import { type DetectedContent } from '@/utils/contentDetector'
@@ -210,7 +206,8 @@ async function processBitcoinContent(
               0
             )
 
-            const psbt: PartiallySignedTransaction = { originalPsbt } as any
+            // Create a legacy PSBT object with base64 property for compatibility
+            const legacyPsbt = { base64: originalPsbt }
 
             const txDetails: TransactionDetails = {
               txid: extractedTxid,
@@ -222,7 +219,7 @@ async function processBitcoinContent(
             }
 
             const txBuilderResult: TxBuilderResult = {
-              psbt,
+              psbt: legacyPsbt,
               txDetails
             }
             actions.setTxBuilderResult?.(txBuilderResult)

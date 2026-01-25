@@ -1,5 +1,5 @@
 import { FlashList } from '@shopify/flash-list'
-import { Network as BdkNetwork } from 'bdk-rn/lib/lib/enums'
+import { Network as BdkNetwork } from 'bdk-rn'
 import { Stack, useFocusEffect, useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import { ScrollView, useWindowDimensions, View } from 'react-native'
@@ -619,11 +619,7 @@ export default function AccountList() {
     <>
       <Stack.Screen
         options={{
-          headerTitle: () => (
-            <SSText uppercase style={{ letterSpacing: 1 }}>
-              {t('app.name')}
-            </SSText>
-          )
+          headerTitle: t('app.name')
         }}
       />
       <TouchableOpacity

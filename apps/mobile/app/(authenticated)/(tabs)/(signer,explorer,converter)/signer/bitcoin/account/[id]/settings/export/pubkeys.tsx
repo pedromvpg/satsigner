@@ -1,4 +1,4 @@
-import { type Network } from 'bdk-rn/lib/lib/enums'
+import { type Network } from 'bdk-rn'
 import bs58check from 'bs58check'
 import { Redirect, router, Stack, useLocalSearchParams } from 'expo-router'
 import { useEffect, useState } from 'react'

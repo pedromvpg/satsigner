@@ -1,9 +1,9 @@
-import { type TxBuilderResult } from 'bdk-rn/lib/classes/Bindings'
 import * as bitcoinjs from 'bitcoinjs-lib'
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner-native'
 
 import { type Key, type Secret } from '@/types/models/Account'
+import { type TxBuilderResult } from '@/types/bdk'
 import { getMultisigScriptTypeFromScriptVersion } from '@/utils/bitcoin'
 import { signPSBTWithSeed } from '@/utils/psbt'
 
@@ -26,7 +26,9 @@ export function usePSBTManagement({
   const convertPsbtToFinalTransaction = useCallback(
     (psbtHex: string): string => {
       // First, try to combine with original PSBT if available
-      const originalPsbtBase64 = txBuilderResult?.psbt?.base64
+      const psbtObj = txBuilderResult?.psbt
+      const originalPsbtBase64 =
+        psbtObj && 'base64' in psbtObj ? psbtObj.base64 : undefined
       let combinedPsbt: bitcoinjs.Psbt | undefined
       let psbt: bitcoinjs.Psbt | undefined
 
@@ -134,7 +136,9 @@ export function usePSBTManagement({
       }
 
       // Get the original PSBT from transaction builder result
-      const originalPsbtBase64 = txBuilderResult?.psbt?.base64
+      const psbtObj = txBuilderResult?.psbt
+      const originalPsbtBase64 =
+        psbtObj && 'base64' in psbtObj ? psbtObj.base64 : undefined
       if (!originalPsbtBase64) {
         toast.error('No original PSBT found')
         return
@@ -175,7 +179,9 @@ export function usePSBTManagement({
       }
 
       // Get the original PSBT from transaction builder result
-      const originalPsbtBase64 = txBuilderResult?.psbt?.base64
+      const psbtObj = txBuilderResult?.psbt
+      const originalPsbtBase64 =
+        psbtObj && 'base64' in psbtObj ? psbtObj.base64 : undefined
       if (!originalPsbtBase64) {
         toast.error('No original PSBT found')
         return

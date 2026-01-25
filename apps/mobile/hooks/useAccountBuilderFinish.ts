@@ -1,4 +1,4 @@
-import { type Network } from 'bdk-rn/lib/lib/enums'
+import { type Network } from 'bdk-rn'
 import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 

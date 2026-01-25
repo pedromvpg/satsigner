@@ -1,8 +1,4 @@
-import { PartiallySignedTransaction } from 'bdk-rn'
-import {
-  type TransactionDetails,
-  type TxBuilderResult
-} from 'bdk-rn/lib/classes/Bindings'
+import { Psbt } from 'bdk-rn'
 import * as bitcoinjs from 'bitcoinjs-lib'
 import { useRouter } from 'expo-router'
 import { toast } from 'sonner-native'
@@ -10,6 +6,7 @@ import { toast } from 'sonner-native'
 import { t } from '@/locales'
 import { useAccountsStore } from '@/store/accounts'
 import { useTransactionBuilderStore } from '@/store/transactionBuilder'
+import { type TransactionDetails, type TxBuilderResult } from '@/types/bdk'
 import { extractKeyFingerprint } from '@/utils/account'
 import { parseHexToBytes } from '@/utils/parse'
 import {
@@ -141,7 +138,10 @@ export function useNostrSignFlow() {
     })
     setSignedPsbts(signedPsbtsMap)
 
-    const psbt = new PartiallySignedTransaction(originalPsbt)
+    // Create a legacy PSBT object with base64 property for compatibility
+    const legacyPsbt = {
+      base64: originalPsbt
+    }
 
     const txDetails: TransactionDetails = {
       txid: extractedTxid,
@@ -153,7 +153,7 @@ export function useNostrSignFlow() {
     }
 
     const txBuilderResult: TxBuilderResult = {
-      psbt,
+      psbt: legacyPsbt,
       txDetails
     }
     setTxBuilderResult(txBuilderResult)

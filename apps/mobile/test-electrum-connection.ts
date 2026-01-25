@@ -5,7 +5,7 @@ import { Blockchain } from 'bdk-rn'
 import {
   BlockChainNames,
   type BlockchainElectrumConfig
-} from 'bdk-rn/lib/lib/enums'
+} from 'bdk-rn'
 
 async function testElectrumConnection() {
   console.log('Testing Electrum connection...\n')
