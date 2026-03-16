@@ -215,13 +215,13 @@ function SSMultipleSankeyDiagram({
       <Canvas
         style={{ width: GRAPH_WIDTH, height: GRAPH_HEIGHT }}
         onLayout={onCanvasLayout}
+        pointerEvents="box-none"
       >
         <Group transform={transform} origin={{ x: w / 2, y: h / 2 }}>
           <SSSankeyLinks
             links={transformedLinks}
             nodes={nodes as Node[]}
             sankeyGenerator={sankeyGenerator}
-            LINK_MAX_WIDTH={LINK_MAX_WIDTH}
             BLOCK_WIDTH={BLOCK_WIDTH}
           />
           <SSSankeyNodes
