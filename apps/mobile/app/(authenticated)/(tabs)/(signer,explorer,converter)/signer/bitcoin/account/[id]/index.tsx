@@ -47,6 +47,7 @@ import {
   SSIconMenu,
   SSIconOutgoing,
   SSIconRefresh,
+  SSIconSwap,
   SSIconTable,
   SSIconYellowIndicator
 } from '@/components/icons'
@@ -1224,6 +1225,13 @@ export default function AccountView() {
             <SSIconEyeOn height={18} width={18} />
           )}
         </SSIconButton>
+        {account?.network === 'bitcoin' && (
+          <SSIconButton
+            onPress={() => router.navigate(`/account/${id}/swap`)}
+          >
+            <SSIconSwap height={16} width={16} />
+          </SSIconButton>
+        )}
         <SSIconButton
           style={{ marginRight: 8 }}
           onPress={() =>

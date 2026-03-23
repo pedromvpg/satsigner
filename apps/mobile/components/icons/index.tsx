@@ -81,6 +81,7 @@ import SSIconSigner from './SSIconSigner'
 import SSIconSignerActive from './SSIconSignerActive'
 import SSIconSingleSignature from './SSIconSingleSignature'
 import SSIconSuccess from './SSIconSuccess'
+import SSIconSwap from './SSIconSwap'
 import SSIconTable from './SSIconTable'
 import SSIconTime from './SSIconTime'
 import SSIconTrash from './SSIconTrash'
@@ -174,6 +175,7 @@ export {
   SSIconSignerActive,
   SSIconSingleSignature,
   SSIconSuccess,
+  SSIconSwap,
   SSIconTable,
   SSIconTime,
   SSIconTrash,
